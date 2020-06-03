@@ -4,12 +4,7 @@ from scipy.special import softmax
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 
-AU_SET = [  # 39 AUs
-    'AU1', 'AU1-2', 'AU2', 'AU2L', 'AU4', 'AU5', 'AU6', 'AU6L', 'AU6R', 'AU7R', 'AU9',
-    'AU10Open', 'AU10LOpen', 'AU10ROpen', 'AU11L', 'AU11R', 'AU12', 'AU25-12', 'AU13',
-    'AU14', 'AU14L', 'AU14R', 'AU15', 'AU16Open', 'AU17', 'AU20', 'AU20L', 'AU20R', 'AU22',
-    'AU23', 'AU24', 'AU25', 'AU26', 'AU27i', 'AU38', 'AU39', 'AU43', 'AU7', 'AU12-6'
-]
+AU_SET = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
 
 
 def _softmax_2d(arr, beta):
@@ -59,10 +54,12 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
                 kernel = np.zeros((len(cfg), P))
                 for i, combi in cfg.items():
                     for c in combi:
+                        print(self.params)
                         kernel[i, self.params.index(c)] = 1            
             else:  # Kernel is a 1D vector (of shape P)
                 kernel = np.zeros(P)
                 for c in cfg:
+                    print(type(self.params))
                     kernel[self.params.index(c)] = 1
             
             self.labels += (clss,)
@@ -74,7 +71,6 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         good practice to defer any computing to the fit() call. """
 
         self._setup()
-        pass
     
     def predict_proba(self, X, y=None):
         """ Predicts a probabilistic target label.
@@ -117,30 +113,30 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         if self.binarize_X:
             X = (X > 0).astype(int)
 
-        P = X.shape[1]
+        N, P = X.shape
         K = len(self.labels)
-        self.dist = np.zeros((X.shape[0], K))
+        self.dist = np.zeros((N, K))
         for i, (_, kernel) in enumerate(self.kernels.items()):
             if kernel.ndim > 1:
-                dist = np.zeros((K, P))
+                dist = np.zeros((K, N))
                 for i in range(K):
                     # IDEA: use different distance metrics
-                    dist[i, :] = (X - kernel[i, :]) ** 2
+                    tmp = (X - kernel[i, :]) ** 2
                     if self.normalize:
                         # Normalize by kernel sq sum
-                        dist[i, :] /= np.sum(kernel[i, :])  # should I square this
+                        tmp /= np.sum(kernel[i, :])  # should I square this?
                     
                     # Compute euclidean distance
-                    dist[i, :] = np.sqrt(np.sum(dist, axis=1))
+                    dist[i, :] = np.sqrt(np.sum(tmp, axis=1))
 
                 # Take max (or mean?) of different options
                 dist = np.max(dist,  axis=0)
             else:
                 dist = (X - kernel) ** 2
                 if self.normalize:
-                    sqdist /= np.sum(kernel)  # should I square this?
+                    dist /= np.sum(kernel)  # should I square this?
                 
-                dist = np.sqrt(np.sum(sqdist, axis=1))
+                dist = np.sqrt(np.sum(dist, axis=1))
             
             self.dist[:, i] = dist
         

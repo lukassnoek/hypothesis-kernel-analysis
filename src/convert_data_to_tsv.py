@@ -1,30 +1,15 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.io import loadmat
 from tqdm import tqdm
 
 
-def vectorized_corr(X, y):
-    """ Assuming X is a 3D array and y a 1D column vector. """
-    Xbar = X.mean(axis=2)         # 60 x 42
-    ybar = y.mean(axis=1)         # 60 x 6
-
-    corrs = np.zeros((X.shape[0], X.shape[1], y.shape[2]))  # 60 x 42 x 6
-    for emo_i in range(y.shape[-1]):
-        yn = y[:, :, emo_i] - ybar[:, emo_i, np.newaxis]
-        Xn = X - Xbar[..., np.newaxis]
-        
-        for au_i in range(X.shape[1]):
-            cov_ = np.sum(Xn[:, au_i, :] * yn, axis=1)
-            var_ = np.sqrt(np.sum(Xn[:, au_i, :] ** 2, axis=1) * np.sum(yn ** 2, axis=1))
-            corrs[:, au_i, emo_i] = cov_ / var_
-
-    corrs[np.isnan(corrs)] = 0
-    return corrs
-
 mat = loadmat('data/AU_data_for_Lukas.mat')
 au_names = [n[0] for n in mat['AUnames'][0]]
+rename_au = {'AU10Open': 'AU10', 'AU10LOpen': 'AU10L', 'AU10ROpen': 'AU10R', 'AU16Open': 'AU16', 'AU27i': 'AU27'}
+au_names = [rename_au[name] if name in rename_au.keys() else name for name in au_names]
+
+np.savetxt('data/au_names.txt', au_names, fmt='%s')
 emo_names = [e[0] for e in mat['expnames'][0]]
 
 au_data = mat['data_AUamp']
@@ -41,16 +26,6 @@ au_model = np.moveaxis(mat['models_AUon'], -1, 1)  # 60 x 42 x 6
 emo_rating = np.moveaxis(mat['data_cat'], -1, 0)   # 60 x 2400 x 7
 intensity = mat['data_rat'].T                      # 60 x 2400
 
-# Corrs
-corrs = vectorized_corr((au_data > 0).astype(int), emo_rating[:, :, :-1])
-plt.imshow(corrs.mean(axis=0), aspect='auto')
-plt.colorbar()
-ax = plt.gca()
-ax.set_xticklabels([''] + emo_names[:-1])
-ax.set_yticks(range(len(au_names)))
-ax.set_yticklabels(au_names, fontdict=dict(fontsize=8))
-plt.savefig('average_corr.png', dpi=200)
-
 for i in tqdm(range(au_data.shape[0])):
     idx = []
     for ii in range(au_data.shape[2]):
@@ -66,9 +41,71 @@ for i in tqdm(range(au_data.shape[0])):
         idx.append(this_idx)
 
     df = pd.DataFrame(au_data[i, :, :].T, columns=au_names, index=idx)
-    df = df.drop(['AU7', 'AU12L', 'AU12R'], axis=1)
+   
+    # Let's do some cleaning. First, remove the bilateral AUs that *also*
+    # are activated unilaterally
+    for au in ['2', '6', '7', '10', '12', '14']:
+        L = 'AU' + au + 'L'
+        R = 'AU' + au + 'R'
+        act = df['AU' + au].values
+        df[L] = np.c_[act, df[L].values].max(axis=1)
+        if au != '2':
+            df[R] = np.c_[act, df[R].values].max(axis=1)
+        else:
+            df[R] = act
+
+        # Remove the bilateral one
+        df = df.drop('AU' + au, axis=1)
+
+    # Now, let's "remove" (recode) compound AUs
+    for aus in ['1-2', '25-12', '12-6']:
+        act = df['AU' + aus].values
+        for au in aus.split('-'):
+            if au in ['1', '25']:
+                df['AU' + au] = np.c_[act, df['AU' + au]].max(axis=1)
+            else:
+                df['AU' + au + 'L'] = np.c_[act, df['AU' + au + 'L']].max(axis=1)
+                df['AU' + au + 'R'] = np.c_[act, df['AU' + au + 'R']].max(axis=1)
+
+        df = df.drop('AU' + aus, axis=1)
+
+    new_cols = []
+    for col in df.columns:
+        if 'L' in col or 'R' in col:
+            new_col = col.replace('L', '').replace('R', '')
+            new_col = 'AU' + new_col[2:].zfill(2) + col[-1]
+        else:
+            new_col = 'AU' + col[2:].zfill(2)
+        
+        new_cols.append(new_col)
+
+    df.columns = new_cols
+    df = df.loc[:, sorted(df.columns)]
+    print(df.columns)
+    if i == 0:
+        np.savetxt('data/au_names_new.txt', df.columns, fmt='%s')
+
+    new_idx = []
+    for _, row in df.iterrows():
+        au_on = sorted(np.where(row > 0)[0])
+        this_idx = '_'.join(
+            [f'{df.columns[i]}-{int(100 * row[i])}'
+             for i in au_on]
+        )
+        if not this_idx:
+            this_idx = 'empty'
+
+        new_idx.append(this_idx)
+
+    # Merge activation 0.0666 and 0.1333
+    vals = df.values
+    vals[(0.0666 < vals) & (vals < 0.134)] = 0.1
+    vals[(0.266 < vals) & (vals < 0.3334)] = 0.3
+    vals[(0.4666 < vals) & (vals < 0.5334)] = 0.5
+    df.loc[:, :] = np.round(vals, 1)
+    df.index = new_idx
+    
     df['emotion'] = [emo_names[idx] for idx in emo_rating[i, :, :].argmax(axis=1)]
     df['intensity'] = intensity[i, :]
-
     f_out = f'data/ratings/sub-{str(i+1).zfill(2)}_ratings.tsv'
     df.to_csv(f_out, sep='\t')
