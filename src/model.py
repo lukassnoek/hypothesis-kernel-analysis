@@ -8,8 +8,8 @@ AU_SET = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
 
 
 def _softmax_2d(arr, beta):
-    """ Vectorized softmax implementation with inverse temperature
-    parameters (beta). """
+    """ Vectorized softmax implementation including an inverse temperature
+    parameter (beta). """
     scaled = beta * arr
     num = np.exp(scaled - scaled.max(axis=1, keepdims=True))
     denom = np.sum(num, axis=1, keepdims=True)
@@ -20,10 +20,10 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
     """ A "Theory-kernel classifier" that computes the probability of an emotion
     being present in the face based on the associated theoretical action unit
     configuration. """
-    def __init__(self, kernel_dict, binarize_X=False, normalize=True, scale_dist=True, beta_sm=3):
+    def __init__(self, au_cfg, binarize_X=False, normalize=True, scale_dist=True, beta_sm=3):
         """ Initializes an TheoryKernelClassifier object.
         
-        kernel_dict : dict
+        au_cfg : dict
             Dictionary with theoretical kernels
         binarize_X : bool
             Whether to binarize the configuration (0 > = 1, else 0)
@@ -35,43 +35,47 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
             Beta parameter for the softmax function. 
         """
 
-        self.kernel_dict = kernel_dict
+        self.au_cfg = au_cfg
         self.binarize_X = binarize_X
         self.normalize = normalize
         self.scale_dist = scale_dist
         self.beta_sm = beta_sm
-        self.params = AU_SET
-        self.kernels = dict()  # 'filled' in _setup() call
-        self.labels = ()  # same
+        self.param_names = AU_SET
+        self.Z = None  # 'filled' in _setup() call
+        self.labels = list(au_cfg.keys())
     
     def _setup(self):
         """ Sets up kernels by creating a vector per class. """
 
-        P = len(self.params)        
-        for clss, cfg in self.kernel_dict.items():
-            # If dict, then there are multiple options
-            if isinstance(cfg, dict):  # Kernel is initially 2D: n_options x n_params
-                kernel = np.zeros((len(cfg), P))
+        P = len(self.param_names)  # number of AUs
+        K = len(self.au_cfg)  # number of classes
+        self.Z = np.zeros((K, P))  # theory configuration
+
+        # Loop across different classes and their configuration
+        # (e.g., happy: ['AU6', 'AU12'], sad: ['AU4'])
+        for i, (clss, cfg in self.au_cfg.items():
+            # If cfg is a dict, then there are multiple configuations
+            if isinstance(cfg, dict):
+                # Theory vector is 2D: n_configs x n_params
+                th_vector = np.zeros((len(cfg), P))
                 for i, combi in cfg.items():
                     for c in combi:
-                        print(self.params)
-                        kernel[i, self.params.index(c)] = 1            
-            else:  # Kernel is a 1D vector (of shape P)
-                kernel = np.zeros(P)
+                        th_vector[i, self.param_names.index(c)] = 1
+            else:  # Theory vector is a 1D vector (of shape P)
+                th_vec = np.zeros(P)
                 for c in cfg:
-                    print(type(self.params))
-                    kernel[self.params.index(c)] = 1
+                    th_vec[self.params.index(c)] = 1
             
-            self.labels += (clss,)
-            self.kernels[clss] = kernel
+            self.th_vec[clss] = th_vec
 
     def fit(self, X=None, y=None):
         """ Doesn't fit any parameters but is included for scikit-learn
         compatibility. Also, the kernels are setup here, as it is apparently
         good practice to defer any computing to the fit() call. """
+        if self.th_vectors is not None:
+            # Only set up the theory vector once
+            self._setup()
 
-        self._setup()
-    
     def predict_proba(self, X, y=None):
         """ Predicts a probabilistic target label.
         
@@ -100,7 +104,7 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
             pred = np.random.choice(np.arange(ties.size)[ties])
         else:
             pred = np.argmax(probs)
-            
+
         return pred
         
     def _predict(self, X, y=None):
@@ -110,13 +114,13 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         if X.shape[1] != len(self.params):
             raise ValueError("X does not have the expected number of features.")
         
-        if self.binarize_X:
+        if self.binarize_X:  # binarize input features
             X = (X > 0).astype(int)
 
         N, P = X.shape
         K = len(self.labels)
         self.dist = np.zeros((N, K))
-        for i, (_, kernel) in enumerate(self.kernels.items()):
+        for i, (_, th_vec) in enumerate(self.th_vec.items()):
             if kernel.ndim > 1:
                 dist = np.zeros((K, N))
                 for i in range(K):
