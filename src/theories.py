@@ -20,7 +20,7 @@ THEORIES = dict(
         }
     ),
     Matsumoto2008=dict(
-        happiness=['AU06L', 'AU06R' 'AU12L', 'AU12R'],
+        happiness=['AU06L', 'AU06R', 'AU12L', 'AU12R'],
         sadness={
             0: ['AU01', 'AU15'],
             1: ['AU04'],
@@ -30,8 +30,8 @@ THEORIES = dict(
             5: ['AU17', 'AU01', 'AU15', 'AU04']
         },
         surprise={
-            0: ['AU01', 'AU2L', 'AU2R', 'AU05', 'AU25'],
-            1: ['AU01', 'AU2L', 'AU2R', 'AU05', 'AU26']
+            0: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
+            1: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU26']
         },
         fear={
             0: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20'],
@@ -52,12 +52,12 @@ THEORIES = dict(
         }
     ),
     Keltner2019=dict(
-        happiness=['AU06L', 'AU06R', 'AU07', 'AU12L', 'AU12R' 'AU25', 'AU26'],
+        happiness=['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU25', 'AU26'],
         sadness=['AU01', 'AU04', 'AU06L', 'AU06R', 'AU15', 'AU17'],
         surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25', 'AU26'],
         fear=['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU07L', 'AU07R', 'AU20', 'AU25'],
         anger=['AU04', 'AU05', 'AU17', 'AU23', 'AU24'],
-        disgust=['AU07', 'AU09', 'AU25', 'AU26']  # misses AU19, tongue show
+        disgust=['AU07L', 'AU07R', 'AU09', 'AU25', 'AU26']  # misses AU19, tongue show
     ),
     Cordaro2008ref=dict(
         happiness=['AU06L', 'AU06R', 'AU12L', 'AU12R'],
@@ -74,8 +74,8 @@ THEORIES = dict(
         },
         sadness=['AU04', 'AU43'],  # misses AU54 (head down)
         surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
-        fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07', 'AU25'],  # also "jaw"/"move back"
+        fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
         anger=['AU04', 'AU07L', 'AU07R'],
-        disgust=['AU04', 'AU06', 'AU07L', 'AU07R', 'AU09', 'AU10', 'AU25', 'AU26']  # also "jaw"
+        disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
     )
 )
