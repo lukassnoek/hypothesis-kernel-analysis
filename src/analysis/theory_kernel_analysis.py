@@ -18,10 +18,9 @@ ohe.fit(np.arange(6)[:, np.newaxis])
 subs = [str(s).zfill(2) for s in range(1, 61)]
 scores_all = []
 for tk_name, tk in THEORIES.items():
-
-    for kernel in ['linear', 'sigmoid', 'cosine']:
-        for beta in [1, 10, 100, 1000]:
-            model = TheoryKernelClassifier(au_cfg=tk, param_names=PARAM_NAMES, kernel=kernel, binarize_X=False, beta=beta)
+    for kernel in ['cosine']:#, 'sigmoid', 'cosine']:
+        for beta in [1]:#, 10, 100, 1000]:
+            model = TheoryKernelClassifier(au_cfg=tk, param_names=PARAM_NAMES, kernel=kernel, binarize_X=True, beta=beta)
             #model = GridSearchCV(model, param_grid={'beta': np.logspace(-1, 4, num=10)})
             scores = np.zeros((len(subs), 6))
             for i, sub in enumerate(subs):
@@ -30,6 +29,7 @@ for tk_name, tk in THEORIES.items():
                 X, y = data.iloc[:, :-2], data.iloc[:, -2]
                 y_ohe = pd.get_dummies(y)
                 model.fit(X, y)
+
                 y_pred = model.predict_proba(X)
                 scores[i, :] = roc_auc_score(y_ohe, y_pred, average=None)
             

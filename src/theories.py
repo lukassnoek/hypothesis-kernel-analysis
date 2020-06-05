@@ -77,5 +77,79 @@ THEORIES = dict(
         fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
         anger=['AU04', 'AU07L', 'AU07R'],
         disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
+    ),
+    #JackAndSchyns=dict(
+    #    happiness=,
+    #    sadness=,
+    #    surprise=,
+    #    fear=
+    #    anger=
+    #    disgust=
+    #)
+    # from https://www.frontiersin.org/articles/10.3389/fpsyg.2020.00920/full
+    Ekman=dict(
+        happiness={
+            0: ['AU12L', 'AU12R'],
+            1: ['AU12L', 'AU12R', 'AU06L', 'AU06R']
+        },
+        sadness={
+            0: ['AU01', 'AU04'],
+            1: ['AU01', 'AU04', 'AU11L', 'AU11R'],
+            2: ['AU01', 'AU04', 'AU15'],
+            3: ['AU01', 'AU04', 'AU15', 'AU17'],
+            4: ['AU06L', 'AU06R', 'AU15'],
+            5: ['AU11L', 'AU11R', 'AU17'],
+            6: ['AU01']
+        },
+        surprise={
+            0: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU26'],
+            1: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU27'],
+            2: ['AU01', 'AU02L', 'AU02R', 'AU05'],
+            3: ['AU01', 'AU02L', 'AU02R', 'AU26'],
+            4: ['AU01', 'AU02L', 'AU02R', 'AU27'],
+            5: ['AU05', 'AU26'],
+            6: ['AU05', 'AU27']
+        },
+        fear={
+            0: ['AU01', 'AU02L', 'AU02R', 'AU04'],
+            1: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20', 'AU25'],
+            2: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20', 'AU26'],
+            3: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20', 'AU27'],
+            4: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU25'],
+            5: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU26'],
+            6: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU27'],
+            7: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05'],
+            8: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
+            9: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU26'],
+            10: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU27'],
+            11: ['AU05', 'AU20', 'AU25'],
+            12: ['AU05', 'AU20', 'AU26'],
+            13: ['AU05', 'AU20', 'AU27'],
+            14: ['AU05', 'AU20'],
+            15: ['AU20']
+        },
+        anger={
+            0: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU10L', 'AU10R', 'AU11L', 'AU11R', 'AU22', 'AU23', 'AU25'],
+            1: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU10L', 'AU10R', 'AU11L', 'AU11R', 'AU22', 'AU23', 'AU26'],
+            2: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU10L', 'AU10R', 'AU11L', 'AU11R', 'AU23', 'AU25'],
+            3: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU10L', 'AU10R', 'AU11L', 'AU11R', 'AU23', 'AU26'],
+            4: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU17', 'AU23'],
+            5: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU17', 'AU24'],
+            6: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU24'],
+            7: ['AU04', 'AU05', 'AU07L', 'AU07R', 'AU24'],
+            8: ['AU04', 'AU05'],
+            9: ['AU04', 'AU07L', 'AU07R'],
+            10: ['AU17', 'AU24']
+        },
+        disgust={
+            0: ['AU09', 'AU17'],
+            1: ['AU10L', 'AU10R', 'AU17'],
+            2: ['AU09', 'AU16', 'AU25'],
+            3: ['AU10L', 'AU10R', 'AU16', 'AU25'],
+            4: ['AU09', 'AU16', 'AU26'],
+            5: ['AU10L', 'AU10R', 'AU16', 'AU26'],
+            6: ['AU09'],
+            7: ['AU10L', 'AU10R']
+        }
     )
 )

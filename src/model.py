@@ -161,11 +161,11 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
             X = (X > 0).astype(int)
 
         sim = pairwise_kernels(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
+        #sim /= self.Z_.sum(axis=1)
         sim = np.hstack(
-            [sim[:, i == self.cls_idx_].max(axis=1, keepdims=True)
+            [sim[:, i == self.cls_idx_].mean(axis=1, keepdims=True)
              for i in np.unique(self.cls_idx_)]
         )
-        
         EPS = 1e-10
         sim[sim == 0] = EPS
         probs = _softmax_2d(sim, self.beta)
