@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-from sklearn.metrics import pairwise_kernels, roc_auc_score
+from sklearn.metrics import pairwise_kernels, pairwise_distances, roc_auc_score
 
 sys.path.append('src')
 from theories import THEORIES
@@ -24,7 +24,7 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
     """ A "Theory-kernel classifier" that computes the probability of an emotion
     being present in the face based on the associated theoretical action unit
     configuration. """
-    def __init__(self, au_cfg, param_names, kernel='linear', binarize_X=False, beta=1, kernel_kwargs=None):
+    def __init__(self, au_cfg, param_names, kernel='linear', ktype='similarity', binarize_X=False, beta=1, kernel_kwargs=None):
         """ Initializes an TheoryKernelClassifier object.
         
         au_cfg : dict
@@ -39,6 +39,7 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
 
         self.au_cfg = au_cfg
         self.kernel = kernel
+        self.ktype = ktype
         self.binarize_X = binarize_X
         self.beta = beta
         self.param_names = param_names
@@ -79,12 +80,12 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         self.labels_ = list(self.au_cfg.keys())
         
         cls_idx = []  # find how many configs each class has
-        for i, cfg in enumerate(self.au_cfg.values()):
+        for i, (clss, cfg) in enumerate(sorted(self.au_cfg.items())):
             if isinstance(cfg, dict):
                 nr = len(cfg)
             else:
                 nr = 1
-
+            
             cls_idx.extend([i] * nr)
 
         self.cls_idx_ = np.array(cls_idx)
@@ -160,12 +161,19 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         if self.binarize_X:  # binarize input features
             X = (X > 0).astype(int)
 
-        sim = pairwise_kernels(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
-        #sim /= self.Z_.sum(axis=1)
+        if self.ktype == 'similarity':
+            sim = pairwise_kernels(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
+        else:
+            delta = pairwise_distances(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
+            sim = 1 - delta
+
+        sim = np.nan_to_num(sim)
+
         sim = np.hstack(
             [sim[:, i == self.cls_idx_].mean(axis=1, keepdims=True)
              for i in np.unique(self.cls_idx_)]
         )
+        
         EPS = 1e-10
         sim[sim == 0] = EPS
         probs = _softmax_2d(sim, self.beta)
