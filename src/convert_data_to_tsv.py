@@ -81,7 +81,7 @@ for i in tqdm(range(au_data.shape[0])):
 
     df.columns = new_cols
     df = df.loc[:, sorted(df.columns)]
-    print(df.columns)
+    
     if i == 0:
         np.savetxt('data/au_names_new.txt', df.columns, fmt='%s')
 
@@ -99,10 +99,14 @@ for i in tqdm(range(au_data.shape[0])):
 
     # Merge activation 0.0666 and 0.1333
     vals = df.values
-    vals[(0.0666 < vals) & (vals < 0.134)] = 0.1
-    vals[(0.266 < vals) & (vals < 0.3334)] = 0.3
-    vals[(0.4666 < vals) & (vals < 0.5334)] = 0.5
-    df.loc[:, :] = np.round(vals, 1)
+    vals[(0 <= vals) & (vals < 0.334)] = 0.25
+    vals[(0.334 < vals) & (vals < 0.667)] = 0.5
+    vals[vals >= 0.667] = 0.75
+    
+    #vals[(0.0666 < vals) & (vals < 0.134)] = 0.1
+    #vals[(0.266 < vals) & (vals < 0.3334)] = 0.3
+    #vals[(0.4666 < vals) & (vals < 0.5334)] = 0.5
+    df.loc[:, :] = np.round(vals, 2)
     df.index = new_idx
     
     df['emotion'] = [emo_names[idx] for idx in emo_rating[i, :, :].argmax(axis=1)]

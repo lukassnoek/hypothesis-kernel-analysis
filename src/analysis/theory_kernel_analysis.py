@@ -15,15 +15,17 @@ EMOTIONS = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
 ohe = OneHotEncoder(categories='auto', sparse=False)
 ohe.fit(np.arange(6)[:, np.newaxis])
 
-beta = 1
+beta = 1000
+kernel= 'sigmoid'
 subs = [str(s).zfill(2) for s in range(1, 61)]
 scores_all = []
 preds_all = []
 for tk_name, tk in tqdm(THEORIES.items()):
-    for kernel in ['cosine']:
+    for norm in ['softmax', 'linear']:
         ktype = 'similarity' if kernel in ['cosine', 'sigmoid'] else 'distance'
-        model = TheoryKernelClassifier(au_cfg=tk, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype, binarize_X=False, beta=beta)
-        #model = GridSearchCV(model, param_grid={'kernel': ['sigmoid', 'cosine'], 'beta': np.logspace(-1, 4, num=10)})
+        model = TheoryKernelClassifier(au_cfg=tk, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
+                                       binarize_X=False, normalization=norm, beta=beta)
+        #model = GridSearchCV(model, param_grid={'normalization': ['softmax', 'linear']})
         scores = np.zeros((len(subs), 6))
         preds = []
         for i, sub in enumerate(subs):
@@ -47,6 +49,7 @@ for tk_name, tk in tqdm(THEORIES.items()):
         scores['tk'] = tk_name
         scores['kernel'] = kernel
         scores['beta'] = 1
+        scores['normalization'] = norm
         scores_all.append(scores)
 
         #preds = pd.melt(pd.concat(preds).reset_index(), id_vars=['index', 'sub', 'intensity'], value_name='pred', var_name='emotion')
@@ -55,6 +58,7 @@ for tk_name, tk in tqdm(THEORIES.items()):
         preds['tk'] = tk_name
         preds['kernel'] = kernel
         preds['beta'] = beta
+        preds['normalization'] = norm
         preds_all.append(preds)
 
 preds = pd.concat(preds_all)
@@ -62,4 +66,5 @@ preds.to_csv('results/predictions.tsv', sep='\t')
 
 scores = pd.concat(scores_all, axis=0)
 scores.to_csv('results/auroc.tsv', sep='\t')
-print(scores.groupby(['tk', 'emotion', 'kernel', 'beta']).mean())
+pd.set_option('display.max_rows', 1000)
+print(scores.groupby(['tk', 'emotion', 'normalization']).mean())

@@ -24,7 +24,7 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
     """ A "Theory-kernel classifier" that computes the probability of an emotion
     being present in the face based on the associated theoretical action unit
     configuration. """
-    def __init__(self, au_cfg, param_names, kernel='linear', ktype='similarity', binarize_X=False, beta=1, kernel_kwargs=None):
+    def __init__(self, au_cfg, param_names, kernel='linear', ktype='similarity', binarize_X=False, beta=1, normalization='softmax', kernel_kwargs=None):
         """ Initializes an TheoryKernelClassifier object.
         
         au_cfg : dict
@@ -43,11 +43,11 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         self.binarize_X = binarize_X
         self.beta = beta
         self.param_names = param_names
+        self.normalization = normalization
         self.kernel_kwargs = kernel_kwargs
         self.Z_ = None
         self.labels_ = None
         self.cls_idx_ = None
-
 
     def set_params(self, **params):
         """ Sets params, but slightly differently than scikit-learn,
@@ -176,5 +176,9 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         
         EPS = 1e-10
         sim[sim == 0] = EPS
-        probs = _softmax_2d(sim, self.beta)
+        if self.normalization == 'softmax':
+            probs = _softmax_2d(sim, self.beta)
+        else:  # linear normalization
+            probs = sim / sim.sum(axis=1, keepdims=True)
+
         return probs
