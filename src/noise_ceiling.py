@@ -5,7 +5,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 
-def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=False, progbar=False):
+def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=False, progbar=False, K=None,
+                          return_number=False, bootstrap=False):
     """ Computes the noise ceiling for data with repetitions.
 
     Parameters
@@ -29,12 +30,19 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
     
     # Strings to nums
     le = LabelEncoder()
-    y = pd.Series(le.fit_transform(y), index=y.index)
+    le.fit(np.array(['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']))
+    
+    # convert y to numeric
+    y = pd.Series(le.transform(y), index=y.index).sort_index()
     
     # Get unique indices (stim IDs)
     uniq_idx = y.index.unique()
     
-    K = y.unique().size  # number of classes (for emotions: 6)
+    # If the number of classes is not explicitly given, infer from data
+    if K is None:
+        K = y.unique().size  # number of classes
+
+    # Get 2D matrix with uniq_idx X classes
     counts = np.zeros((uniq_idx.size, K))
     to_iter = enumerate(tqdm(uniq_idx)) if progbar else enumerate(uniq_idx)
     is_double = np.zeros(len(uniq_idx), dtype=bool)
@@ -47,7 +55,13 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
         else:
             # If no reps, just set label count to only label
             counts[i, y.loc[idx]] = 1
-    
+
+    # Remove
+    if doubles_only:
+        counts = counts[is_double, :]
+        uniq_idx = uniq_idx[is_double]
+        y = y.loc[y.loc[uniq_idx].index]
+
     if soft:
         optimal = counts / counts.sum(axis=1, keepdims=True)
     else:    
@@ -60,25 +74,47 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
             rnd_class = np.random.choice(opt_class, size=1)  
             optimal[ii, rnd_class] = 1
 
-    # Repeat best possible prediction R times
     optimal = pd.DataFrame(optimal, index=uniq_idx)
-    optimal = optimal.loc[y.index.intersection(optimal.index), :]  # tile
-    if doubles_only:
-        optimal = optimal.loc[uniq_idx[is_double], :]
-    
-    optimal = optimal.sort_index()
+    #if subsample is not None:
+    #    ss_idx = uniq_idx.to_series().sample(n=is_double.sum(), replace=True).index
+    #    optimal = optimal.loc[ss_idx, :]
+    #    y = y.loc[ss_idx]
+
+    # This will repeat the optimal predictions R times
+    optimal = optimal.loc[y.loc[uniq_idx].index, :].sort_index()
 
     # Needed to convert 1D to 2D
-    y_flat = y.loc[optimal.index.unique()].sort_index()
     ohe = OneHotEncoder(categories='auto', sparse=False)
     ohe.fit(np.arange(K)[:, np.newaxis])
-    y_ohe = ohe.transform(y_flat[:, np.newaxis])
-    
+    y_ohe = ohe.transform(y.values[:, np.newaxis])
+
+    if bootstrap:
+        bts_idx = uniq_idx.to_series().sample(frac=1, replace=True).index
+        y_ohe_new, optimal_new = [], []
+        for trial in sorted(bts_idx):
+            idx = optimal.index == trial
+            y_ohe_new.append(y_ohe[idx, :])
+            optimal_new.append(optimal.loc[idx, :])
+
+        y_ohe = np.vstack(y_ohe_new)
+        optimal = pd.concat(optimal_new, axis=0)
+
     # Compute best possible score ("ceiling") between actual labels (y_ohe)
     # and optimal labels (optimal)
-    ceiling = np.zeros(6)
+    ceiling = np.zeros(K)
     ceiling[:] = np.nan
     idx = y_ohe.sum(axis=0) != 0
-    ceiling[idx] = scoring(y_ohe[:, idx], optimal.values[:, idx], average=None)
+    
+    print(y_ohe[:10, idx])
+    print(optimal.values[:10, idx])
 
-    return ceiling
+    try:
+        ceiling[idx] = scoring(y_ohe[:, idx], optimal.values[:, idx], average=None)
+    except ValueError as e:
+        raise(e)
+        ceiling[idx] = np.nan
+
+    if return_number:
+        return ceiling, is_double.sum()
+    else:
+        return ceiling
