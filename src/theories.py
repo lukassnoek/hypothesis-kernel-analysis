@@ -67,17 +67,17 @@ THEORIES = dict(
         anger=['AU04', 'AU05', 'AU07L', 'AU07R', 'AU23'],
         disgust=['AU09', 'AU15', 'AU16']
     ),
-    Cordaro2008IPC=dict(
-        happiness={
-            0: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU26'],
-            1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],
-        },
-        sadness=['AU04', 'AU43'],  # misses AU54 (head down)
-        surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
-        fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
-        anger=['AU04', 'AU07L', 'AU07R'],
-        disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
-    ),
+    #Cordaro2008IPC=dict(
+    #    happiness={
+    #        0: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU26'],
+    #        1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],
+    #    },
+    #    sadness=['AU04', 'AU43'],  # misses AU54 (head down)
+    #    surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
+    #    fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
+    #    anger=['AU04', 'AU07L', 'AU07R'],
+    #    disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
+    #),
     #JackAndSchyns=dict(
     #    happiness=,
     #    sadness=,
@@ -86,6 +86,7 @@ THEORIES = dict(
     #    anger=
     #    disgust=
     #)
+    #
     # from https://www.frontiersin.org/articles/10.3389/fpsyg.2020.00920/full
     Ekman=dict(
         happiness={
