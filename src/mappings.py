@@ -4,7 +4,7 @@ Note that the values can be dictionary themselves, representing different *possi
 configurations (basically, when a theory states: "anger can be either [AUx, AUx, AUx] *or*
 [AUx, AUx, AUx, AUx]"). """
 
-THEORIES = dict(
+MAPPINGS = dict(
     Darwin=dict(
         happiness=['AU06L', 'AU06R', 'AU12L', 'AU12R'],
         sadness=['AU01', 'AU15'],
@@ -23,11 +23,9 @@ THEORIES = dict(
         happiness=['AU06L', 'AU06R', 'AU12L', 'AU12R'],
         sadness={
             0: ['AU01', 'AU15'],
-            1: ['AU04'],
-            2: ['AU04', 'AU01', 'AU15'],
-            3: ['AU17'],
-            4: ['AU17', 'AU01', 'AU15'],
-            5: ['AU17', 'AU01', 'AU15', 'AU04']
+            1: ['AU01', 'AU15', 'AU04'],
+            2: ['AU01', 'AU15', 'AU17'],
+            3: ['AU01', 'AU15', 'AU04', 'AU17']
         },
         surprise={
             0: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
@@ -35,8 +33,8 @@ THEORIES = dict(
         },
         fear={
             0: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20'],
-            1: ['AU25'],
-            2: ['AU26']
+            1: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20', 'AU25'],
+            2: ['AU01', 'AU02L', 'AU02R', 'AU04', 'AU05', 'AU20', 'AU26'],
         },
         anger={
             0: ['AU04', 'AU05', 'AU22', 'AU23', 'AU24'],
@@ -45,9 +43,9 @@ THEORIES = dict(
         disgust={
             0: ['AU09'],
             1: ['AU10L', 'AU10R'],
-            2: ['AU25'],
-            3: ['AU26'],
-            4: ['AU09', 'AU25'],
+            2: ['AU09', 'AU25'],
+            3: ['AU09', 'AU26'],
+            4: ['AU10L', 'AU10R', 'AU25'],
             5: ['AU10L', 'AU10R', 'AU26']
         }
     ),
@@ -67,17 +65,17 @@ THEORIES = dict(
         anger=['AU04', 'AU05', 'AU07L', 'AU07R', 'AU23'],
         disgust=['AU09', 'AU15', 'AU16']
     ),
-    #Cordaro2008IPC=dict(
-    #    happiness={
-    #        0: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU26'],
-    #        1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],
-    #    },
-    #    sadness=['AU04', 'AU43'],  # misses AU54 (head down)
-    #    surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
-    #    fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
-    #    anger=['AU04', 'AU07L', 'AU07R'],
-    #    disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
-    #),
+    Cordaro2008IPC=dict(
+        happiness={
+            0: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU26'],
+            1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],
+        },
+        sadness=['AU04', 'AU43'],  # misses AU54 (head down)
+        surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
+        fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
+        anger=['AU04', 'AU07L', 'AU07R'],
+        disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
+    ),
     #JackAndSchyns=dict(
     #    happiness=,
     #    sadness=,

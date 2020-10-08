@@ -5,8 +5,6 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.metrics import pairwise_kernels, pairwise_distances, roc_auc_score
 
-sys.path.append('src')
-from theories import THEORIES
 
 AU_SET = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
 
@@ -20,12 +18,12 @@ def _softmax_2d(arr, beta):
     return num / denom
 
 
-class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):  
-    """ A "Theory-kernel classifier" that computes the probability of an emotion
+class KernelClassifier(BaseEstimator, ClassifierMixin):  
+    """ A "Kernel classifier" that computes the probability of an emotion
     being present in the face based on the associated theoretical action unit
     configuration. """
     def __init__(self, au_cfg, param_names, kernel='linear', ktype='similarity', binarize_X=False, beta=1, normalization='softmax', kernel_kwargs=None):
-        """ Initializes an TheoryKernelClassifier object.
+        """ Initializes an KernelClassifier object.
         
         au_cfg : dict
             Dictionary with theoretical kernels
@@ -139,6 +137,7 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
         X : numpy array
             A 2D numpy array of shape N (samples) x P (features)
         """
+        # Get probabilistic predictions and take the argmax
         probs = self._predict(X)
         preds = probs.argmax(axis=1)
         #argmax_idx = probs == probs.max(axis=1, keepdims=True)
@@ -165,8 +164,9 @@ class TheoryKernelClassifier(BaseEstimator, ClassifierMixin):
             sim = pairwise_kernels(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
         else:
             delta = pairwise_distances(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
-            sim = 1 - delta
+            sim = 1 / (1 + delta)
 
+        # Set NaNs to 0 (i.e., undefined similarity equals 0)
         sim = np.nan_to_num(sim)
 
         sim = np.hstack(

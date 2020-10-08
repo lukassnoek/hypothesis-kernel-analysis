@@ -62,6 +62,16 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
         uniq_idx = uniq_idx[is_double]
         y = y.loc[y.loc[uniq_idx].index]
 
+    n_repeats = []
+    for idx in uniq_idx:
+        n_repeats.append(y.loc[idx].shape[0])
+
+    stats = {}
+    stats['n_total'] = is_double.size
+    stats['n_doubles'] = is_double.sum()
+    stats['mean_repeats'] = np.mean(n_repeats)
+    stats['std_repeats'] = np.std(n_repeats)
+
     if soft:
         optimal = counts / counts.sum(axis=1, keepdims=True)
     else:    
@@ -105,16 +115,16 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
     ceiling[:] = np.nan
     idx = y_ohe.sum(axis=0) != 0
     
-    print(y_ohe[:10, idx])
-    print(optimal.values[:10, idx])
+    #print(y_ohe[:10, idx])
+    #print(optimal.values[:10, idx])
 
     try:
         ceiling[idx] = scoring(y_ohe[:, idx], optimal.values[:, idx], average=None)
     except ValueError as e:
-        raise(e)
+        #raise(e)
         ceiling[idx] = np.nan
 
     if return_number:
-        return ceiling, is_double.sum()
+        return ceiling, stats
     else:
         return ceiling

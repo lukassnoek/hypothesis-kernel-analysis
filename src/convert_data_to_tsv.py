@@ -87,9 +87,12 @@ for i in tqdm(range(au_data.shape[0])):
 
     # Merge activation 0.0666 and 0.1333
     vals = df.to_numpy()
-    vals[(0 < vals) & (vals < 0.334)] = 0.25
-    vals[(0.334 < vals) & (vals < 0.667)] = 0.5
-    vals[vals >= 0.667] = 0.75
+    #print(np.unique(np.round(vals, 3)))
+    vals = np.round(vals, 1)
+    print(np.unique(vals))
+    #vals[(0 < vals) & (vals < 0.334)] = 0.25
+    #vals[(0.334 < vals) & (vals < 0.667)] = 0.5
+    #vals[vals >= 0.667] = 0.75
     df.loc[:] = vals
     
     new_idx = []
