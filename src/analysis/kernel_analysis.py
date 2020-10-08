@@ -19,38 +19,42 @@ ohe = OneHotEncoder(categories='auto', sparse=False)
 ohe.fit(np.arange(6)[:, np.newaxis])
 
 # Define analysis parameters
-beta = 100
-kernel = 'sigmoid'
+beta = 1
+kernel = 'linear'
 subs = [str(s).zfill(2) for s in range(1, 61)]
 scores_all, preds_all = [], []
 
-# Loop across mappings
+# Loop across mappings (Darwin, Ekman, etc.)
 for mapp_name, mapp in tqdm(MAPPINGS.items()):
-    # ktype = kernel type
+    # ktype = kernel type (infer from kernel name)
     ktype = 'similarity' if kernel in ['cosine', 'sigmoid', 'linear'] else 'distance'
+
+    # Initialize model!
     model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
                              binarize_X=False, normalization='softmax', beta=beta)
     
     #model = GridSearchCV(model, param_grid={'normalization': ['softmax', 'linear']})
+    # Initialize scores (one score per subject and per emotion)
     scores = np.zeros((len(subs), len(EMOTIONS)))
     preds = []
+
+    # Compute model performance per subject!
     for i, sub in enumerate(subs):
         data = pd.read_csv(f'data/ratings/sub-{sub}_ratings.tsv', sep='\t', index_col=0)
         data = data.query("emotion != 'other'")
         X, y = data.iloc[:, :-2], data.iloc[:, -2]
+
+        # Technically, we're not "fitting" anything, but this will set up the mapping matrix (self.Z_)
         model.fit(X, y)
 
         # Predict data + compute performance (AUROC)
         y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
         scores[i, :] = roc_auc_score(pd.get_dummies(y), y_pred, average=None)
-        from sklearn.metrics import confusion_matrix
-        print(confusion_matrix(pd.get_dummies(y).values.argmax(axis=1), y_pred.values.argmax(axis=1)))
+
         # Save results
         y_pred['sub'] = sub
         y_pred['intensity'] = data['intensity']
         y_pred['y_true'] = data['emotion']
-        #print(y_pred)
-        #exit()
         preds.append(y_pred)
 
     # Store scores and raw predictions
@@ -63,12 +67,7 @@ for mapp_name, mapp in tqdm(MAPPINGS.items()):
     scores_all.append(scores)
 
     preds = pd.concat(preds, axis=0)
-    preds['mapping'] = mapp_name
-    #preds = pd.melt(pd.concat(preds).reset_index(), id_vars=['index', 'sub', 'intensity', 'y_true'], value_name='pred', var_name='emotion')
-    #preds['kernel'] = kernel
-    #preds['beta'] = beta
-    #print(preds.query("sub == '01'").sort_values('index'))
-    
+    preds['mapping'] = mapp_name    
     preds_all.append(preds)
 
 # Save scores and predictions
@@ -76,15 +75,21 @@ scores = pd.concat(scores_all, axis=0)
 scores.to_csv('results/scores.tsv', sep='\t')
 #print(scores.groupby(['emotion', 'mapping']).mean())
 
+# Save predictions (takes a while). Not really necessary, but maybe useful for 
+# follow-up analyses
 preds = pd.concat(preds_all)
 preds.to_csv('results/predictions.tsv', sep='\t')
+
+### Start intensity-stratified analysis! ###
 
 # Compute average intensity across repeated observations
 mean_int = preds['intensity'].reset_index().groupby('index').mean()
 preds.loc[mean_int.index, 'intensity'] = mean_int['intensity']
 
-# Compute quantiles based on this mean intensity
+# Compute quantiles based on this mean intensity: define 6 values, get 5 quantiles
 percentiles = preds['intensity'].quantile([0, .2, .4, .6, .8, 1.])
+
+# Initialize results dataframe
 scores_int = pd.DataFrame(columns=['sub', 'emotion', 'mapping', 'intensity', 'score'])
 i = 0
 
