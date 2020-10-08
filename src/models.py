@@ -5,13 +5,13 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.metrics import pairwise_kernels, pairwise_distances, roc_auc_score
 
-
+# This file contains all AU names!
 AU_SET = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
 
 
 def _softmax_2d(arr, beta):
     """ Vectorized softmax implementation including an inverse temperature
-    parameter (beta). """
+    parameter (beta). It assumes a 2D array with stimuli x features (similarities). """
     scaled = beta * arr
     num = np.exp(scaled - scaled.max(axis=1, keepdims=True))
     denom = np.sum(num, axis=1, keepdims=True)
@@ -26,13 +26,21 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         """ Initializes an KernelClassifier object.
         
         au_cfg : dict
-            Dictionary with theoretical kernels
+            Dictionary with theoretical kernels (e.g. `mappings['Darwin']` from mappings.py)
+        param_names : list
+            List with parameter names (e.g., ['AU1', 'AU2', etc.])
+        kernel : str
+            Name of kernel; anything that is accepted by sklearn's `pairwise_kernels` or `pairwise_distances`
+        ktype : str
+            Type of kernel; either 'similarity' (uses `pairwise_kernels`) or 'distance' (uses `pairwise_distances`)
         binarize_X : bool
             Whether to binarize the configuration (0 > = 1, else 0)
-        normalize : bool
-            Whether to normalize the distances with the sum of the AU-vector
+        normalization : str
+            How to normalize the similarities ('softmax' or 'linear')
         beta : int/float
             Beta parameter for the softmax function. 
+        kernel_kwargs : dict
+            Optional extra arguments to be used in either `pairwise_distances` or `pairwise_similarity`
         """
 
         self.au_cfg = au_cfg
@@ -70,15 +78,16 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         return params
 
     def _setup(self):
-        """ Sets up kernels by creating a vector per class. """
+        """ Sets up kernels by creating a vector per class. Only done once (i.e., 
+        the first time calling `fit`). """
         if self.kernel_kwargs is None:
             self.kernel_kwargs = dict()
 
         # Labels are the different classes (e.g., happy, angry, fear, etc.)
         self.labels_ = list(self.au_cfg.keys())
-        
+
         cls_idx = []  # find how many configs each class has
-        for i, (clss, cfg) in enumerate(sorted(self.au_cfg.items())):
+        for i, (_, cfg) in enumerate(sorted(self.au_cfg.items())):
             if isinstance(cfg, dict):
                 nr = len(cfg)
             else:
@@ -130,7 +139,8 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         return self._predict(X)
 
     def predict(self, X):
-        """ Predicts a discrete target label.
+        """ Predicts a discrete target label. First calls `predict`, which returns a
+        probabilistic prediction and then takes the argmax.
         
         Parameters
         ----------
@@ -146,6 +156,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         return preds
 
     def score(self, X, y):
+        """ Computes the model performance score. Hardcoded to be `roc_auc_score`. """
         y = pd.get_dummies(y)
         preds = self.predict_proba(X)
         return roc_auc_score(y, preds, average='micro')
@@ -164,16 +175,19 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
             sim = pairwise_kernels(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
         else:
             delta = pairwise_distances(X, self.Z_, metric=self.kernel, **self.kernel_kwargs)
+            # Convert distance to similarity 
             sim = 1 / (1 + delta)
 
         # Set NaNs to 0 (i.e., undefined similarity equals 0)
         sim = np.nan_to_num(sim)
 
+        # If there are multiple configurations per class, take the max!
         sim = np.hstack(
-            [sim[:, i == self.cls_idx_].mean(axis=1, keepdims=True)
+            [sim[:, i == self.cls_idx_].max(axis=1, keepdims=True)
              for i in np.unique(self.cls_idx_)]
         )
-        
+
+        # Set zeros to a small number (EPS) to make sure softmax doesn't crash        
         EPS = 1e-10
         sim[sim == 0] = EPS
         if self.normalization == 'softmax':
