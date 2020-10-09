@@ -71,10 +71,19 @@ MAPPINGS = dict(
             1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],
         },
         sadness=['AU04', 'AU43'],  # misses AU54 (head down)
-        surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25'],
-        fear=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25'],  # also "jaw"/"move back"
+        surprise={
+            0: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25', 'AU26'],
+            1: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU25', 'AU27']
+        },
+        fear={
+            0: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25', 'AU26'],  # also "jaw"/"move back"
+            1: ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU07L', 'AU07R', 'AU25', 'AU27']
+        },
         anger=['AU04', 'AU07L', 'AU07R'],
-        disgust=['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26']  # also "jaw"
+        disgust={
+            0: ['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU26'],  # also "jaw"
+            1: ['AU04', 'AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU09', 'AU10L', 'AU10R', 'AU25', 'AU27']
+        }
     ),
     #JackAndSchyns=dict(
     #    happiness=,

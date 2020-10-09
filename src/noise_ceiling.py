@@ -4,10 +4,10 @@ from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
-
+"""
 def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=False, progbar=False, K=None,
                           return_number=False, bootstrap=False):
-    """ Computes the noise ceiling for data with repetitions.
+    ''' Computes the noise ceiling for data with repetitions.
 
     Parameters
     ----------
@@ -26,7 +26,7 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
     ceiling : ndarray
         Numpy ndarray (shape: K,) with ceiling estimates
     
-    """
+    '''
     
     # Strings to nums
     le = LabelEncoder()
@@ -85,10 +85,6 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
             optimal[ii, rnd_class] = 1
 
     optimal = pd.DataFrame(optimal, index=uniq_idx)
-    #if subsample is not None:
-    #    ss_idx = uniq_idx.to_series().sample(n=is_double.sum(), replace=True).index
-    #    optimal = optimal.loc[ss_idx, :]
-    #    y = y.loc[ss_idx]
 
     # This will repeat the optimal predictions R times
     optimal = optimal.loc[y.loc[uniq_idx].index, :].sort_index()
@@ -115,9 +111,6 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
     ceiling[:] = np.nan
     idx = y_ohe.sum(axis=0) != 0
     
-    #print(y_ohe[:10, idx])
-    #print(optimal.values[:10, idx])
-
     try:
         ceiling[idx] = scoring(y_ohe[:, idx], optimal.values[:, idx], average=None)
     except ValueError as e:
@@ -128,3 +121,46 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
         return ceiling, stats
     else:
         return ceiling
+"""
+
+def compute_noise_ceiling(y, only_repeats=True, n_bootstraps=0):
+    """ Computes a noise ceiling given a series y with possible 
+    repeated indices. """
+
+    if only_repeats:
+        # Compute noise ceiling only on repeated trials! (No bias upwards)
+        repeats = y.loc[y.index.duplicated()].index.unique()
+        y = y.loc[repeats].sort_index()
+
+    # Compute the "optimal" predictions:
+    # 1. Per unique index, compute the count per emotion
+    # 2. Divide counts by sum (per unique index)
+    # 3. Unstack to move emotion groups to columns
+    # 4. Fill NaNs (no ratings) with 0
+    opt = (y.reset_index() \
+        .groupby(['index', 'emotion']).size() \
+        .groupby(level=0) \
+        .apply(lambda x: x / x.sum()) \
+        .unstack(level=1) \
+        .fillna(0)
+    )
+
+    if n_bootstraps != 0:  # do bootstrapping
+        # Pre-allocate noise ceiling array
+        nc = np.zeros((n_bootstraps, opt.shape[1]))
+
+        for i in tqdm(range(n_bootstraps)):
+            # Resample optimal predictions
+            opt2 = opt.copy().sample(frac=1, replace=True)
+            # Remove non-used trials from y
+            y2 = y.copy().loc[opt2.index].sort_index()
+            # Repeat the optimal trials according to the repeats in y2
+            opt_rep = opt.loc[y2.index, :].sort_index()
+            # Compute noise ceiling
+            nc[i, :] = roc_auc_score(pd.get_dummies(y2).values, opt_rep.values, average=None)
+    else:
+        # Same as above, but on the original opt array
+        opt_rep = opt.copy().loc[y.index, :].sort_index()
+        nc = roc_auc_score(pd.get_dummies(y).values, opt_rep.values, average=None)
+
+    return nc

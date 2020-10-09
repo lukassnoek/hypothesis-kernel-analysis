@@ -47,17 +47,18 @@ for intensity in [0, 1, 2, 3, 4, 5]:
         return_number=True
     )
 
-    bootstrap_nc = np.zeros((20, 6))
+    bootstrap_nc = np.zeros((10, 6))
     for r in tqdm(range(bootstrap_nc.shape[0])):
         bootstrap_nc[r, :] = compute_noise_ceiling(
             tmp_ratings['emotion'],
             scoring=roc_auc_score,
             soft=True,
             progbar=False,
-            doubles_only=False,
+            doubles_only=True,
             K=6,
             bootstrap=True
         )
+        print(bootstrap_nc[r, :])
 
     sd = np.nanstd(bootstrap_nc, axis=0)
     for emo, val, s in zip(emotions, nc, sd):
@@ -69,4 +70,4 @@ for intensity in [0, 1, 2, 3, 4, 5]:
         nc_df.loc[i, 'sd'] = s
         i += 1
 
-nc_df.to_csv('data/noise_ceilings.tsv', sep='\t', index=True)
+nc_df.to_csv('results/noise_ceilings.tsv', sep='\t', index=True)
