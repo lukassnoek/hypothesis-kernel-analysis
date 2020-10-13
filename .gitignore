@@ -134,3 +134,4 @@ data/ratings
 **/*.mat
 **/.DS_Store
 results/predictions.tsv
+results/*.tsv

@@ -57,7 +57,7 @@ MAPPINGS = dict(
         anger=['AU04', 'AU05', 'AU17', 'AU23', 'AU24'],
         disgust=['AU07L', 'AU07R', 'AU09', 'AU25', 'AU26']  # misses AU19, tongue show
     ),
-    Cordaro2008ref=dict(
+    Cordaro2018ref=dict(
         happiness=['AU06L', 'AU06R', 'AU12L', 'AU12R'],
         sadness=['AU01', 'AU04', 'AU05'],
         surprise=['AU01', 'AU02L', 'AU02R', 'AU05', 'AU26'],
@@ -65,7 +65,7 @@ MAPPINGS = dict(
         anger=['AU04', 'AU05', 'AU07L', 'AU07R', 'AU23'],
         disgust=['AU09', 'AU15', 'AU16']
     ),
-    Cordaro2008IPC=dict(
+    Cordaro2018IPC=dict(
         happiness={
             0: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU26'],
             1: ['AU06L', 'AU06R', 'AU07L', 'AU07R', 'AU12L', 'AU12R', 'AU16', 'AU25', 'AU27'],

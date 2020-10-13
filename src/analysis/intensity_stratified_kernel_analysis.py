@@ -20,15 +20,15 @@ subs = [str(s).zfill(2) for s in range(1, 61)]
 mean_int = preds['intensity'].reset_index().groupby('index').mean()
 preds.loc[mean_int.index, 'intensity'] = mean_int['intensity']
 
-# Compute quantiles based on this mean intensity: define 6 values, get 5 quantiles
-percentiles = preds['intensity'].quantile([0, .2, .4, .6, .8, 1.])
+# Compute quantiles based on this mean intensity: define 5 values, get 4 quantiles
+percentiles = preds['intensity'].quantile([0., .25, .5, .75, 1.])
 
 # Initialize results dataframe
 scores_int = pd.DataFrame(columns=['sub', 'emotion', 'mapping', 'intensity', 'score'])
 i = 0
 
 # Loop over trials based on intensity levels
-for intensity in tqdm([1, 2, 3, 4, 5]):
+for intensity in tqdm([1, 2, 3, 4]):
     # Get current set of trials based on `intensity`
     minn, maxx = percentiles.iloc[intensity-1], percentiles.iloc[intensity]
     preds_int = preds.query("@minn <= intensity & intensity <= @maxx")

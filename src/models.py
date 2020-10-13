@@ -54,6 +54,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         self.Z_ = None
         self.labels_ = None
         self.cls_idx_ = None
+        self.sim_ = None
 
     def set_params(self, **params):
         """ Sets params, but slightly differently than scikit-learn,
@@ -182,17 +183,17 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         sim = np.nan_to_num(sim)
 
         # If there are multiple configurations per class, take the max!
-        sim = np.hstack(
+        self.sim_ = np.hstack(
             [sim[:, i == self.cls_idx_].max(axis=1, keepdims=True)
              for i in np.unique(self.cls_idx_)]
         )
 
         # Set zeros to a small number (EPS) to make sure softmax doesn't crash        
         EPS = 1e-10
-        sim[sim == 0] = EPS
+        self.sim_[self.sim_ == 0] = EPS
         if self.normalization == 'softmax':
-            probs = _softmax_2d(sim, self.beta)
+            probs = _softmax_2d(self.sim_, self.beta)
         else:  # linear normalization
-            probs = sim / sim.sum(axis=1, keepdims=True)
+            probs = self.sim_ / self.sim_.sum(axis=1, keepdims=True)
 
         return probs
