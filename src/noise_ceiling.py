@@ -125,7 +125,26 @@ def compute_noise_ceiling(y, scoring=roc_auc_score, soft=True, doubles_only=Fals
 
 def compute_noise_ceiling(y, only_repeats=True, n_bootstraps=0):
     """ Computes a noise ceiling given a series y with possible 
-    repeated indices. """
+    repeated indices. Much faster than it used to be.
+    
+    Parameters
+    ----------
+    y : pandas Series
+        A Series object in which the index indicates the trial ID and
+        the column represents the output category (e.g., "anger", "sadness", etc.)
+    only_repeats : bool
+        Whether to compute the noise ceiling using repeated trials only or on
+        all trials
+    n_bootstraps : int
+        How many bootstraps to perform. If 0, no bootstraps are done and only the
+        actual noise ceiling is computed
+
+    Returns
+    -------
+    nc : numpy array
+        An array with the category-wise noise ceiling (if bootstraps == 0) or
+        a 2D array with n_bootstraps of the category-wise noise ceiling
+    """
 
     if only_repeats:
         # Compute noise ceiling only on repeated trials! (No bias upwards)
@@ -133,15 +152,15 @@ def compute_noise_ceiling(y, only_repeats=True, n_bootstraps=0):
         y = y.loc[repeats].sort_index()
 
     # Compute the "optimal" predictions:
-    # 1. Per unique index, compute the count per emotion
-    # 2. Divide counts by sum (per unique index)
-    # 3. Unstack to move emotion groups to columns
-    # 4. Fill NaNs (no ratings) with 0
     opt = (y.reset_index() \
+        # 1. Per unique index, compute the count per emotion
         .groupby(['index', 'emotion']).size() \
         .groupby(level=0) \
+        # 2. Divide counts by sum (per unique index)
         .apply(lambda x: x / x.sum()) \
+        # 3. Unstack to move emotion groups to columns
         .unstack(level=1) \
+        # 4. Fill NaNs (no ratings) with 0
         .fillna(0)
     )
 

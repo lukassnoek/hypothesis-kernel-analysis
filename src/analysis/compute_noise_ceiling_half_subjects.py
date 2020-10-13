@@ -48,7 +48,7 @@ for intensity in tqdm([0, 1, 2, 3, 4, 5]):
     )
 
     sd = np.nanstd(nc_b, axis=0)
-    print(sd)
+
     for emo, val, s in zip(emotions, nc, sd):
         nc_df.loc[i, 'participant_id'] = 'between_subjects'
         nc_df.loc[i, 'emotion'] = emo

@@ -37,30 +37,19 @@ for intensity in [0, 1, 2, 3, 4, 5]:
         minn, maxx = percentiles.iloc[intensity-1], percentiles.iloc[intensity]
         tmp_ratings = ratings.query("@minn <= intensity & intensity <= @maxx")    
 
-    nc, stats = compute_noise_ceiling(
+    nc = compute_noise_ceiling(
         tmp_ratings['emotion'],
-        scoring=roc_auc_score,
-        soft=True,
-        progbar=False,
-        doubles_only=False,
-        K=6,
-        return_number=True
+        only_repeats=True
     )
 
-    bootstrap_nc = np.zeros((10, 6))
-    for r in tqdm(range(bootstrap_nc.shape[0])):
-        bootstrap_nc[r, :] = compute_noise_ceiling(
-            tmp_ratings['emotion'],
-            scoring=roc_auc_score,
-            soft=True,
-            progbar=False,
-            doubles_only=True,
-            K=6,
-            bootstrap=True
-        )
-        print(bootstrap_nc[r, :])
+    nc_b = compute_noise_ceiling(
+        tmp_ratings['emotion'],
+        only_repeats=True,
+        n_bootstraps=20
+    )
 
-    sd = np.nanstd(bootstrap_nc, axis=0)
+    sd = np.nanstd(nc_b, axis=0)
+
     for emo, val, s in zip(emotions, nc, sd):
         nc_df.loc[i, 'participant_id'] = 'between_subjects'
         nc_df.loc[i, 'emotion'] = emo
