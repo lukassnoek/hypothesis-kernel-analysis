@@ -6,8 +6,7 @@ def simulate_configs(n_mapp, max_config):
     MAPPINGS_configs = dict()
     list_configs = np.empty([0])
     for i in range(n_mapp):
-        n_configs = np.random.randint(1, max_config)
-    
+        n_configs = np.random.randint(1, max_config)    
         configs_per_mapping = dict()
         for emotion in EMOTIONS:
         
@@ -21,7 +20,7 @@ def simulate_configs(n_mapp, max_config):
             
         MAPPINGS_configs[f'mapp_{i}'] = configs_per_mapping
         list_configs = np.append(list_configs, n_configs)
-
+    
     return MAPPINGS_configs, list_configs
 
 def simulate_aus(n_mapp, max_aus):
@@ -38,3 +37,7 @@ def simulate_aus(n_mapp, max_aus):
         list_aus = np.append(list_aus, n_aus)
 
     return MAPPINGS_aus, list_aus
+
+
+if __name__ == '__main__':
+    simulate_configs(1, 10)
