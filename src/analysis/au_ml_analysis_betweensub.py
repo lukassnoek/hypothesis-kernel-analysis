@@ -3,10 +3,12 @@ import pandas as pd
 from glob import glob
 from tqdm import tqdm
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import RepeatedStratifiedKFold
 
-model = LogisticRegression(class_weight='balanced', penalty='l1', C=0.01, solver='saga')
+#model = LogisticRegression(class_weight='balanced')
+model = RandomForestClassifier()
 files = sorted(glob('data/ratings/sub*.tsv'))
 cv = RepeatedStratifiedKFold(n_repeats=2, n_splits=5)
 
