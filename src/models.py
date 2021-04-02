@@ -50,7 +50,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         self.beta = beta
         self.param_names = param_names
         self.normalization = normalization
-        self.kernel_kwargs = kernel_kwargs
+        self.kernel_kwargs = kernel_kwargs 
         self.Z_ = None
         self.labels_ = None
         self.cls_idx_ = None
@@ -81,9 +81,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
     def _setup(self):
         """ Sets up kernels by creating a vector per class. Only done once (i.e., 
         the first time calling `fit`). """
-        if self.kernel_kwargs is None:
-            self.kernel_kwargs = dict()
-
+        
         # Labels are the different classes (e.g., happy, angry, fear, etc.)
         self.labels_ = list(self.au_cfg.keys())
 
@@ -123,6 +121,9 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         """ Doesn't fit any parameters but is included for scikit-learn
         compatibility. Also, the kernels are setup here, as it is apparently
         good practice to defer any computing to the fit() call. """
+        if self.kernel_kwargs is None:
+            self.kernel_kwargs = dict()
+        
         if self.Z_ is None:
             # Only set up the theory vector once
             self._setup()
