@@ -30,8 +30,7 @@ for mapp_name, mapp in tqdm(MAPPINGS.items()):
 
     # Technically, we're not "fitting" anything, but this will set up the mapping matrix (self.Z_)
     model.fit(None, None)
-    mapping_matrix = pd.DataFrame(model.Z_, columns=PARAM_NAMES, index=EMOTIONS[model.cls_idx_])
-    mapping_matrix.to_csv(f'data/{mapp_name}.tsv', sep='\t')
+    model.Z_.to_csv(f'data/{mapp_name}.tsv', sep='\t')
 
     # Initialize scores (one score per subject and per emotion)
     scores = np.zeros((len(subs), len(EMOTIONS)))
@@ -71,7 +70,7 @@ for mapp_name, mapp in tqdm(MAPPINGS.items()):
 # Save scores and predictions
 scores = pd.concat(scores_all, axis=0)
 scores.to_csv('results/scores.tsv', sep='\t')
-#print(scores.groupby(['emotion', 'mapping']).mean())
+print(scores.groupby(['emotion', 'mapping']).mean())
 
 # Save predictions (takes a while). Not really necessary, but maybe useful for 
 # follow-up analyses

@@ -29,10 +29,9 @@ for method in ['predict', 'predict_proba']:
     # Loop across mappings (Darwin, Ekman, etc.)
     for mapp_name, mapp in MAPPINGS.items():
         # ktype = kernel type (infer from kernel name)
-        ktype = 'similarity' if kernel in ['cosine', 'sigmoid', 'linear'] else 'distance'
 
         # Initialize model!
-        model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
+        model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype='similarity',
                                 binarize_X=False, normalization='softmax', beta=beta)
         
         # Initialize scores (one score per subject and per emotion)

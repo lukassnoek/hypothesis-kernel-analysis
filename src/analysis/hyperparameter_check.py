@@ -61,4 +61,4 @@ for kernel in tqdm(['cosine', 'sigmoid', 'linear', 'euclidean', 'l1', 'l2']):
 # Save scores and predictions
 scores = pd.concat(scores_all, axis=0)
 print(scores.groupby(['kernel', 'beta']).mean())
-scores.to_csv('results/hyperparameter_scores.tsv', sep='\t')
+scores.to_csv('results/scores_hyperparameters.tsv', sep='\t')

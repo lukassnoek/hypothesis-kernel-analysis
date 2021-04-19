@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 from scipy import stats
 from sklearn.preprocessing import OneHotEncoder
+from noiseceiling.utils import _find_repeats
 
 
 def vectorized_corr(X, y):
@@ -67,7 +68,8 @@ for t_split in ['odd', 'even', 'all']:
     t_corrs = corrs * np.sqrt(au.shape[2] - 2) / np.sqrt(1 - corrs**2)
     t_corrs[t_corrs < 0] = 0
     p_corrs = stats.t.sf(np.abs(t_corrs), au.shape[2] - 1) * 2 
-    hyp = (p_corrs < 0.05 / 36).astype(int)
+    # p < 0.05 (bonf corrected for 33 AUs)
+    hyp = (p_corrs < (0.05 / 33)).astype(int)
     for i in range(60):
         df = pd.DataFrame(hyp[i, :, :].T, columns=data[0].columns[:-2])
         df['sub'] = str(i + 1).zfill(2)
@@ -86,12 +88,12 @@ for t_split in ['odd', 'even', 'all']:
         t_corrs = corrs_av * np.sqrt(au.shape[2] - 2) / np.sqrt(1 - corrs_av**2)
         t_corrs[t_corrs < 0] = 0
         p_corrs = stats.t.sf(np.abs(t_corrs), au.shape[2] - 1) * 2 
-        hyp = (p_corrs < 0.05 / 36).astype(int)
+        hyp = (p_corrs < (0.05 / 33)).astype(int)
         df = pd.DataFrame(hyp.T, columns=data[0].columns[:-2])
         df['sub'] = 'average_' + s_split
         df['trial_split'] = t_split
         df['emotion'] = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
-        dfs.append(df)       
+        dfs.append(df)
 
 df = pd.concat(dfs, axis=0)
-df.to_csv('data/JackSchyns.tsv', sep='\t', index=False)
+df.to_csv('data/JackSchyns.tsv', sep='\t')

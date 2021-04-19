@@ -83,7 +83,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         the first time calling `fit`). """
         
         # Labels are the different classes (e.g., happy, angry, fear, etc.)
-        self.labels_ = list(self.au_cfg.keys())
+        self.labels_ = np.array(list(self.au_cfg.keys()))
 
         cls_idx = []  # find how many configs each class has
         for i, (_, cfg) in enumerate(sorted(self.au_cfg.items())):
@@ -116,6 +116,9 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
                 for c in cfg:
                     self.Z_[i, self.param_names.index(c)] = 1
                 i += 1
+
+        self.Z_ = pd.DataFrame(self.Z_, columns=self.param_names,
+                               index=self.labels_[self.cls_idx_])
 
     def fit(self, X=None, y=None):
         """ Doesn't fit any parameters but is included for scikit-learn

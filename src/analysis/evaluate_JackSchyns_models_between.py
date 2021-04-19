@@ -16,8 +16,14 @@ ktype = 'similarity'
 
 subs = [str(s).zfill(2) for s in range(1, 61)]
 
-mapp = pd.read_csv('data/JackSchyns.tsv', sep='\t')
-av_mapp = mapp.query("sub == 'average_even' & trial_split == 'all'").drop(['sub', 'trial_split'], axis=1).set_index('emotion')
+mapp = pd.read_csv('data/JackSchyns.tsv', sep='\t', index_col=0)
+av_mapp = mapp.query("sub == 'average_even' & trial_split == 'even'").drop(['sub', 'trial_split'], axis=1)
+for emo in av_mapp['emotion']:
+    mapp = av_mapp.query("emotion == @emo").iloc[0]
+    mapp = mapp.index[mapp == 1].tolist()
+    print(f"{emo}: {mapp}")
+    
+av_mapp = av_mapp.set_index('emotion')
 model = KernelClassifier(au_cfg=None, param_names=av_mapp.columns.tolist(),
                          kernel=kernel, ktype=ktype, binarize_X=False,
                          normalization='softmax', beta=beta)
@@ -32,7 +38,9 @@ for i, sub in enumerate(subs[1::2]):
     data = data.query("emotion != 'other'")
     data = data.loc[data.index != 'empty', :]
 
+    data = data.iloc[1::2, :]
     X, y = data.iloc[:, :-2], data.iloc[:, -2]
+    
     model.fit(None, None)
     # Predict data + compute performance (AUROC)
     y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
@@ -60,3 +68,4 @@ scores.to_csv('results/JS-between_scores.tsv', sep='\t')
 # Save predictions (takes a while). Not really necessary, but maybe useful for 
 # follow-up analyses
 preds.to_csv('results/JS-between_predictions.tsv', sep='\t')
+

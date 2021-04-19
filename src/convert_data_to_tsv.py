@@ -44,7 +44,7 @@ for i in tqdm(range(au_data.shape[0])):
    
     # Let's do some cleaning. First, remove the bilateral AUs that *also*
     # are activated unilaterally
-    for au in ['2', '6', '7', '10', '12', '14']:
+    for au in ['2', '6', '7', '10', '12', '14', '20']:
         L = 'AU' + au + 'L'
         R = 'AU' + au + 'R'
         act = df['AU' + au].values
