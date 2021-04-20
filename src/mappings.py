@@ -150,5 +150,13 @@ MAPPINGS = dict(
             6: ['AU09'],
             7: ['AU10L', 'AU10R']
         }
-    )
+    ),
+    JS={
+        'anger': ['AU09', 'AU10L', 'AU10R', 'AU22'],
+        'disgust': ['AU09', 'AU10L', 'AU10R', 'AU11L'],
+        'fear': ['AU04', 'AU05', 'AU20L', 'AU20R'],
+        'happy': ['AU06L', 'AU06R', 'AU12L', 'AU12R', 'AU13', 'AU14L', 'AU14R', 'AU25'],
+        'sadness': ['AU04', 'AU17', 'AU24', 'AU43'],
+        'surprise': ['AU01', 'AU02L', 'AU02R', 'AU05', 'AU26', 'AU27']
+    }
 )

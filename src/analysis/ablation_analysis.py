@@ -12,33 +12,29 @@ from models import KernelClassifier
 PARAM_NAMES = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
 EMOTIONS = np.array(['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise'])
 
-# Define analysis parameters
-beta = 1
-kernel = 'cosine'
-ktype = 'similarity'
-
 subs = [str(s).zfill(2) for s in range(1, 61)]
 scores_all = []
 
 # Loop across mappings (Darwin, Ekman, etc.)
 MAPPINGS['JS-between'] = 'JS-between'
     
-for au in tqdm(PARAM_NAMES):
 
+def _parallel_analysis(au, MAPPINGS, EMOTIONS, PARAM_NAMES):
+    scores_all = []
     for mapp_name, mapp in MAPPINGS.items():
         if mapp_name == 'JS-between':
             mapp = pd.read_csv('data/JackSchyns.tsv', sep='\t', index_col=0)
             av_mapp = mapp.query("sub == 'average_even' & trial_split == 'odd'").drop(['sub', 'trial_split'], axis=1).set_index('emotion')
             model = KernelClassifier(au_cfg=None, param_names=av_mapp.columns.tolist(),
-                                    kernel=kernel, ktype=ktype, binarize_X=False,
-                                    normalization='softmax', beta=beta)
+                                    kernel='cosine', ktype='similarity', binarize_X=False,
+                                    normalization='softmax', beta=1)
             model.Z_ = av_mapp
             model.cls_idx_ = range(6)
             these_subs = subs[1::2]
         else:
             #continue
-            model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
-                                    binarize_X=False, normalization='softmax', beta=beta)
+            model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel='cosine',
+                                     ktype='similarity', binarize_X=False, normalization='softmax', beta=1)
             these_subs = subs
         
         model.fit(None, None)
@@ -74,12 +70,22 @@ for au in tqdm(PARAM_NAMES):
             scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
             scores = scores.rename({'index': 'sub'}, axis=1)
             scores['mapping'] = mapp_name
-            scores['kernel'] = kernel
-            scores['beta'] = beta
+            scores['kernel'] = 'cosine'
+            scores['beta'] = 1
             scores['ablated_au'] = au
             scores['ablated_from'] = emo
             scores_all.append(scores)
+    
+    # Save scores and predictions
+    scores = pd.concat(scores_all, axis=0)
+    return scores
 
-# Save scores and predictions
-scores = pd.concat(scores_all, axis=0)
+from joblib import Parallel, delayed
+
+scores = Parallel(n_jobs=2)(delayed(_parallel_analysis)(
+    au, MAPPINGS, EMOTIONS, PARAM_NAMES)
+    for au in tqdm(PARAM_NAMES[:2])
+)
+scores = pd.concat(scores, axis=0)
 scores.to_csv('results/scores_ablation.tsv', sep='\t')
+
