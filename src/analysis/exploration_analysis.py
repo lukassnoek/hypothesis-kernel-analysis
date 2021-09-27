@@ -18,11 +18,17 @@ EMOTIONS = np.array(['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
 ohe = OneHotEncoder(sparse=False)
 ohe.fit(EMOTIONS[:, np.newaxis])
 
+df_abl = pd.read_csv('results/scores_ablation.tsv', sep='\t', index_col=0)
+df_abl = df_abl.drop(['sub', 'beta', 'kernel'], axis=1)
+
 subs = [str(s).zfill(2) for s in range(1, 61)]
 scores_all = []    
 
-def _parallel_analysis(au, MAPPINGS, EMOTIONS, PARAM_NAMES):
-    scores_all = []
+for emo in EMOTIONS:
+
+    df_abl_emo = df_abl.query("ablated_from == @emo & emotion == @emo & score != 0")
+    aus = df_abl_emo.groupby('ablated_au').mean().query("score < 0").index.tolist()
+    
     for mapp_name, mapp in MAPPINGS.items():
     
         model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel='cosine',
@@ -35,8 +41,21 @@ def _parallel_analysis(au, MAPPINGS, EMOTIONS, PARAM_NAMES):
         model.fit(None, None)
         Z_orig = model.Z_.copy()
 
-        for emo in EMOTIONS:
+        for au in aus:
 
+            if np.any(Z_orig.loc[emo, au] == 1):
+                print(f"{au} already in {emo} config of {mapp_name}")
+                scores = np.zeros((len(these_subs), len(EMOTIONS)))
+                scores = pd.DataFrame(scores, columns=EMOTIONS, index=these_subs).reset_index()
+                scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
+                scores = scores.rename({'index': 'sub'}, axis=1)
+                scores['mapping'] = mapp_name
+                scores['appended_au'] = au
+                scores['appended_to'] = emo
+                scores['already_in_config'] = True
+                scores_all.append(scores)
+                continue
+        
             # Initialize scores (one score per subject and per emotion)
             scores = np.zeros((len(these_subs), len(EMOTIONS)))
             scores[:] = np.nan
@@ -57,10 +76,13 @@ def _parallel_analysis(au, MAPPINGS, EMOTIONS, PARAM_NAMES):
                 y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
                 idx = y_ohe.sum(axis=0) != 0
                 scores[i, idx] = roc_auc_score(y_ohe[:, idx], y_pred.to_numpy()[:, idx], average=None)
-                model.Z_.loc[emo, au] = 0
+
+                # APPEND TO CONFIG
+                model.Z_.loc[emo, au] = 1
+
                 y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
                 new = roc_auc_score(y_ohe[:, idx], y_pred.to_numpy()[:, idx], average=None)
-                scores[i, idx] = (new - scores[i, idx]) #/ scores[i, idx]) * 100
+                scores[i, idx] = (new - scores[i, idx])# / scores[i, idx]) * 100
                 model.Z_ = Z_orig.copy()
 
             # Store scores and raw predictions
@@ -68,22 +90,12 @@ def _parallel_analysis(au, MAPPINGS, EMOTIONS, PARAM_NAMES):
             scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
             scores = scores.rename({'index': 'sub'}, axis=1)
             scores['mapping'] = mapp_name
-            scores['kernel'] = 'cosine'
-            scores['beta'] = 1
-            scores['ablated_au'] = au
-            scores['ablated_from'] = emo
+            scores['appended_au'] = au
+            scores['appended_to'] = emo
+            scores['already_in_config'] = False
             scores_all.append(scores)
     
-    # Save scores and predictions
-    scores = pd.concat(scores_all, axis=0)
-    return scores
 
-from joblib import Parallel, delayed
-
-scores = Parallel(n_jobs=17)(delayed(_parallel_analysis)(
-    au, MAPPINGS, EMOTIONS, PARAM_NAMES)
-    for au in tqdm(PARAM_NAMES)
-)
-scores = pd.concat(scores, axis=0)
-scores.to_csv('results/scores_ablation.tsv', sep='\t')
+scores = pd.concat(scores_all, axis=0)
+scores.to_csv('results/scores_append.tsv', sep='\t')
 

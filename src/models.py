@@ -82,19 +82,19 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         """ Sets up kernels by creating a vector per class. Only done once (i.e., 
         the first time calling `fit`). """
         
-        # Labels are the different classes (e.g., happy, angry, fear, etc.)
-        self.labels_ = np.array(list(self.au_cfg.keys()))
-
         cls_idx = []  # find how many configs each class has
-        for i, (_, cfg) in enumerate(sorted(self.au_cfg.items())):
+        labels = []
+        for i, (emo, cfg) in enumerate(sorted(self.au_cfg.items())):
             if isinstance(cfg, dict):
                 nr = len(cfg)
             else:
                 nr = 1
             
             cls_idx.extend([i] * nr)
-
+            labels.extend([emo] * nr) 
+        
         self.cls_idx_ = np.array(cls_idx)
+        self.labels_ = labels
 
         # Initialize array Z, which holds the numerical config
         P = len(self.param_names)  # number of AUs
@@ -118,7 +118,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
                 i += 1
 
         self.Z_ = pd.DataFrame(self.Z_, columns=self.param_names,
-                               index=self.labels_[self.cls_idx_])
+                               index=self.labels_)
 
     def fit(self, X=None, y=None):
         """ Doesn't fit any parameters but is included for scikit-learn

@@ -6,25 +6,33 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import RepeatedStratifiedKFold
-
+from sklearn.preprocessing import OneHotEncoder
 #model = LogisticRegression(class_weight='balanced')
-model = RandomForestClassifier()
+
+EMOTIONS = np.array(['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise'])
+ohe = OneHotEncoder(sparse=False)
+ohe.fit(EMOTIONS[:, np.newaxis])
+
+model = LogisticRegression()
 files = sorted(glob('data/ratings/sub*.tsv'))
 
 data_train = pd.concat(
-    [pd.read_csv(f, sep='\t', index_col=0).query("emotion != 'other'")
+    [pd.read_csv(f, sep='\t', index_col=0).query("emotion != 'other' & data_split == 'train'")
      for f in files[::2]]
 )
 
-X_train, y_train = data_train.iloc[0::2, :-2], data_train.iloc[0::2, -2]
+X_train, y_train = data_train.iloc[0::2, :33], data_train.iloc[0::2, :].loc[:, 'emotion']
 model.fit(X_train, y_train)
 
 scores = np.zeros((len(files[1::2]), 6))
+scores[:] = np.nan
 for i, f in enumerate(files[1::2]):
-    data_test = pd.read_csv(f, sep='\t', index_col=0).query("emotion != 'other'")
-    X_test, y_test = data_test.iloc[1::2, :-2], data_test.iloc[1::2, -2]
+    data_test = pd.read_csv(f, sep='\t', index_col=0).query("emotion != 'other' & data_split == 'test'")
+    X_test, y_test = data_test.iloc[1::2, :33], data_test.iloc[1::2, :].loc[:, 'emotion']
     y_pred = model.predict_proba(X_test)
-    scores[i, :] = roc_auc_score(pd.get_dummies(y_test), y_pred, average=None)
+    y_test = ohe.transform(y_test.to_numpy()[:, np.newaxis])
+    idx = y_test.sum(axis=0) != 0
+    scores[i, idx] = roc_auc_score(y_test[:, idx], y_pred[:, idx], average=None)
 
 scores = pd.DataFrame(
     scores,

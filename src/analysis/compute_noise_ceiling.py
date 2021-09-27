@@ -27,32 +27,14 @@ kwargs = dict(
     progress_bar=True
 )
 
-# nc = compute_nc_classification(
-#     ratings.iloc[:, :33], ratings['emotion'], **kwargs
-# )
-# nc_b = run_bootstraps_nc(ratings.iloc[:, :33], ratings['emotion'], kwargs=kwargs)
-# nc = pd.DataFrame(np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()],
-#                   columns=['noise_ceiling', 'sd'])
-# nc['emotion'] = emotions
-# nc.to_csv('results/noise_ceiling.tsv', sep='\t', index=True)
-
-# ### ON HALF OF THE SUBJECTS
-# ratings = []
-# for sub, f in enumerate(sorted(glob('data/ratings/sub*.tsv')[1::2])):
-#     df = pd.read_csv(f, sep='\t', index_col=0)
-#     df = df.query("emotion != 'other'")
-#     df = df.loc[df.index != 'empty', :]
-#     ratings.append(df)
-
-# ratings = pd.concat(ratings, axis=0)
-# nc = compute_nc_classification(
-#     ratings.iloc[:, :33], ratings['emotion'], **kwargs
-# )
-# nc_b = run_bootstraps_nc(ratings.iloc[:, :33], ratings['emotion'], kwargs=kwargs)
-# nc = pd.DataFrame(np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()],
-#                   columns=['noise_ceiling', 'sd'])
-# nc['emotion'] = emotions
-# nc.to_csv('results/noise_ceiling_half.tsv', sep='\t', index=True)
+nc = compute_nc_classification(
+    ratings.iloc[:, :33], ratings['emotion'], **kwargs
+)
+nc_b = run_bootstraps_nc(ratings.iloc[:, :33], ratings['emotion'], kwargs=kwargs, n_bootstraps=100)
+nc = pd.DataFrame(np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()],
+                  columns=['noise_ceiling', 'sd'])
+nc['emotion'] = emotions
+nc.to_csv('results/noise_ceiling.tsv', sep='\t', index=True)
 
 ### PER INTENSITY LEVEL
 mean_intensity = ratings['intensity'].reset_index().groupby('index').mean()
@@ -67,9 +49,9 @@ for intensity in [1, 2, 3, 4]:
     minn, maxx = percentiles.iloc[intensity-1], percentiles.iloc[intensity]
     tmp_ratings = ratings.query("@minn <= intensity & intensity <= @maxx")
     nc = compute_nc_classification(
-        tmp_ratings.iloc[:, :-2], tmp_ratings['emotion'], **kwargs
+        tmp_ratings.iloc[:, :33], tmp_ratings['emotion'], **kwargs
     )
-    nc_b = run_bootstraps_nc(tmp_ratings.iloc[:, :-2], tmp_ratings['emotion'], kwargs=kwargs)
+    nc_b = run_bootstraps_nc(tmp_ratings.iloc[:, :33], tmp_ratings['emotion'], kwargs=kwargs, n_bootstraps=100)
     nc = np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()]
     nc = pd.DataFrame(nc, columns=['noise_ceiling', 'sd'])
     nc['emotion'] = emotions
@@ -78,3 +60,47 @@ for intensity in [1, 2, 3, 4]:
 
 nc_df = pd.concat(dfs, axis=0)
 nc_df.to_csv('results/noise_ceiling_intensity_stratified.tsv', sep='\t', index=True)
+
+
+### ON TEST SET
+ratings = []
+for sub, f in enumerate(sorted(glob('data/ratings/sub*.tsv')[1::2])):
+    df = pd.read_csv(f, sep='\t', index_col=0)
+    df = df.query("emotion != 'other' & data_split == 'test'")
+    df = df.loc[df.index != 'empty', :]
+    ratings.append(df)
+
+ratings = pd.concat(ratings, axis=0)
+nc = compute_nc_classification(
+    ratings.iloc[:, :33], ratings['emotion'], **kwargs
+)
+nc_b = run_bootstraps_nc(ratings.iloc[:, :33], ratings['emotion'], kwargs=kwargs, n_bootstraps=100)
+nc = pd.DataFrame(np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()],
+                  columns=['noise_ceiling', 'sd'])
+nc['emotion'] = emotions
+nc.to_csv('results/noise_ceiling_test.tsv', sep='\t', index=True)
+
+### PER INTENSITY LEVEL
+mean_intensity = ratings['intensity'].reset_index().groupby('index').mean()
+ratings.loc[mean_intensity.index, 'intensity'] = mean_intensity['intensity']
+percentiles = ratings['intensity'].quantile([0, .25, 0.5, 0.75, 1.])
+nc_df = pd.DataFrame(columns=[
+    ['participant_id', 'emotion', 'intensity', 'noise_ceiling', 'sd']
+])
+dfs = []
+i = 0
+for intensity in [1, 2, 3, 4]:
+    minn, maxx = percentiles.iloc[intensity-1], percentiles.iloc[intensity]
+    tmp_ratings = ratings.query("@minn <= intensity & intensity <= @maxx")
+    nc = compute_nc_classification(
+        tmp_ratings.iloc[:, :33], tmp_ratings['emotion'], **kwargs
+    )
+    nc_b = run_bootstraps_nc(tmp_ratings.iloc[:, :33], tmp_ratings['emotion'], kwargs=kwargs, n_bootstraps=100)
+    nc = np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()]
+    nc = pd.DataFrame(nc, columns=['noise_ceiling', 'sd'])
+    nc['emotion'] = emotions
+    nc['intensity_level'] = intensity
+    dfs.append(nc)
+
+nc_df = pd.concat(dfs, axis=0)
+nc_df.to_csv('results/noise_ceiling_intensity_stratified_test.tsv', sep='\t', index=True)
