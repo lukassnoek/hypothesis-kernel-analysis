@@ -8,7 +8,7 @@ from copy import deepcopy
 
 sys.path.append('src')
 from mappings import MAPPINGS
-from app_utils import _load_data, _run_analysis, _map2leg, _leg2map, _plot_results
+from viz.app_utils import _load_data, _run_analysis, _map2leg, _leg2map, _plot_results
 
 EMOTIONS = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
 PARAM_NAMES = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()

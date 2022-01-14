@@ -4,13 +4,13 @@ from scipy.io import loadmat
 from tqdm import tqdm
 from noiseceiling.utils import _find_repeats
 
-mat = loadmat('data/AU_data_for_Lukas.mat')
+mat = loadmat('data/raw/AU_data_for_Lukas.mat')
 au_names = [n[0] for n in mat['AUnames'][0]]
 rename_au = {'AU10Open': 'AU10', 'AU10LOpen': 'AU10L', 'AU10ROpen': 'AU10R', 'AU16Open': 'AU16', 'AU27i': 'AU27'}
 au_names = [rename_au[name] if name in rename_au.keys() else name for name in au_names]
-
 emo_names = [e[0] for e in mat['expnames'][0]]
 
+# Extract amplitudes per AU
 au_data = mat['data_AUamp']
 au_data[np.isnan(au_data)] = 0
 au_data_onoff = mat['data_AUon']
@@ -26,17 +26,19 @@ emo_rating = np.moveaxis(mat['data_cat'], -1, 0)   # 60 x 2400 x 7
 intensity = mat['data_rat'].T                      # 60 x 2400
 
 # load face identities
-mat = loadmat('data/cluster_data_ID.mat')['id'].squeeze()
+mat = loadmat('data/raw/cluster_data_ID.mat')['id'].squeeze()
 f_ids = np.stack([mat[i].T for i in range(len(mat))])  # 60 x 2400 x 8
 f_ids = f_ids.round(1)  # round to one decimal to reduce precision
 
-# Last 45 participants saw one of 8 faces
+# Last 45 participants saw one of 8 faces [face ID code: 0-7]
 f_ids_45 = f_ids[15:, :, :].argmax(axis=-1)
 
-# First 15 participants saw a weighted face
+# First 15 participants saw a weighted face [face ID code: 8-9xx]
 f_ids_df = pd.DataFrame(f_ids[:15, :, :].reshape((15*2400, 8)), columns=[f'fp_{i}' for i in range(8)])
-uniq_face_ids, _ = _find_repeats(f_ids_df, progress_bar=True)
+uniq_face_ids, _ = _find_repeats(f_ids_df, progress_bar=False)
 uniq_face_ids = np.vstack((uniq_face_ids.reshape((15, 2400)) + 7, f_ids_45))  # 60 x 2400
+
+# Last four columns represent male faces
 gender = (f_ids.argmax(axis=2) > 3).astype(int)  # 0 = female, 1 = male
 gender = gender.reshape((60, 2400))
 
@@ -55,7 +57,7 @@ for i in tqdm(range(au_data.shape[0])):
         idx.append(this_idx)
 
     this_dat = np.c_[au_data[i, :, :].T, uniq_face_ids[i, :], gender[i, :]]
-    df = pd.DataFrame(this_dat, columns=au_names + ['face_id', 'gender'], index=idx)
+    df = pd.DataFrame(this_dat, columns=au_names + ['face_id', 'face_gender'], index=idx)
 
     # Let's do some cleaning. First, remove the bilateral AUs that *also*
     # are activated unilaterally
@@ -86,7 +88,7 @@ for i in tqdm(range(au_data.shape[0])):
 
     new_cols = []
     for col in df.columns:
-        if col in ['face_id', 'gender']:
+        if col in ['face_id', 'face_gender']:
             new_col = col
         elif 'L' in col or 'R' in col:
             new_col = col.replace('L', '').replace('R', '')
@@ -123,12 +125,9 @@ for i in tqdm(range(au_data.shape[0])):
     df.loc[:, :] = np.round(vals, 2)
     df.index = new_idx
 
-    # Determine train & test for JS models
-    #rep_ids, _ = _find_repeats(df)
-    #df.loc[:, 'data_split'] = ['train' if ri in np.unique(rep_ids)[0::2] else 'test'
-    #                           for ri in rep_ids]
-    
     df['emotion'] = [emo_names[idx] for idx in emo_rating[i, :, :].argmax(axis=1)]
     df['intensity'] = intensity[i, :]
-    f_out = f'data/ratings/sub-{str(i+1).zfill(2)}_ratings.tsv'
+    df['sub_nr'] = i+1
+    df['sub_ethnicity'] = 0
+    f_out = f'data/ratings/WC/sub-{str(i+1).zfill(2)}_ratings.tsv'
     df.to_csv(f_out, sep='\t')

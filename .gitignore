@@ -131,8 +131,8 @@ dmypy.json
 # Custom
 **/.vscode
 data/ratings
+data/raw
 **/*.mat
 **/.DS_Store
 results/predictions.tsv
 results/*.tsv
-paper
