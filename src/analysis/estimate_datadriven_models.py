@@ -66,4 +66,5 @@ for ethn in ['WC', 'EA', '*']:
             p_corrs = stats.t.sf(np.abs(t_corrs), N - 1) * 2 
             hyp = (p_corrs < 0.05).astype(int)
             df = pd.DataFrame(hyp.T, columns=df_raw.columns[:33], index=emotions[:6])
-            df.to_csv(f'data/JackSchyns_sub-{sub_split}_trial-{trial_split}.tsv', sep='\t')
+            ethn = 'all' if ethn == '*' else ethn
+            df.to_csv(f'data/JackSchyns_ethn-{ethn}_sub-{sub_split}_trial-{trial_split}.tsv', sep='\t')

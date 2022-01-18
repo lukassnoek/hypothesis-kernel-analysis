@@ -1,13 +1,14 @@
 import sys
 import pandas as pd
 import numpy as np
+import os.path as op
 from tqdm import tqdm
 from glob import glob
+from collections import defaultdict
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
 
 sys.path.append('src')
-from mappings import MAPPINGS
 from models import KernelClassifier
 
 # Define parameter names (AUs) and target label (EMOTIONS)
@@ -21,79 +22,65 @@ beta = 1
 kernel = 'cosine'
 ktype = 'similarity'
 
-scores_all, preds_all = [], []
+scores_all = []
 
 # Loop across mappings (Darwin, Ekman, etc.)
-for mapp_name, mapp in tqdm(MAPPINGS.items()):
+mappings = ['Cordaro2018IPC', 'Cordaro2018ref', 'Darwin', 'Ekman', 'Keltner2019', 'Matsumoto2008',
+#            'JackSchyns_ethn-WC_sub-train_trial-train',
+#            'JackSchyns_ethn-EA_sub-train_trial-train',
+#            'JackSchyns_ethn-all_sub-train_trial-train',
+            ]
+for mapp_name in mappings:
 
     # Initialize model!
-    model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
+    model = KernelClassifier(au_cfg=None, param_names=None, kernel=kernel, ktype=ktype,
                              binarize_X=False, normalization='softmax', beta=beta)
-    
-    # Technically, we're not "fitting" anything, but this will set up the mapping matrix (self.Z_)
-    model.fit(None, None)
-    model.Z_.to_csv(f'data/{mapp_name}.tsv', sep='\t')
 
-    for ethn in ['WC', 'EA']:
-        sub_files = sorted(glob(f'data/ratings/{ethn}/*.tsv'))
-        df = pd.concat([pd.read_csv(f, sep='\t', index_col=0) for f in sub_files])
-        df = df.query("emotion != 'other'")
-        df = df.loc[df.index != 'empty', :]
+    # Note that there is no "fitting" of the model! The mappings themselves
+    # can be interpreted as already-fitted models
+    model.add_Z(pd.read_csv(f'data/{mapp_name}.tsv', sep='\t', index_col=0))
 
-        subs = df['sub_nr'].unique()
-        meta_data = {'sub_split': [], 'trial_split': []}
-        for trial_split in ['train', 'test']:
-            # Initialize scores (one score per subject and per emotion)
-            scores = np.zeros((len(subs), len(EMOTIONS)))
+    sub_files = sorted(glob(f'data/ratings/*/*.tsv'))
+    sub_files = [f for i, f in enumerate(sub_files) if i % 3 != 0] 
+    for f in tqdm(sub_files, desc=mapp_name):
+        df = pd.read_csv(f, sep='\t', index_col=0)
+        df = df.query("emotion != 'other'")  # remove non-emo trials
+        df = df.loc[df.index != 'empty', :]  # remove trials w/o AUs
+
+        #for trial_split in ['train', 'test', 'all']:
+        #    if trial_split != 'all':
+        #        data = df.query("trial_split == @trial_split")
+        #    else:
+        #        data = df
+        data = df.query("trial_split == 'train'")
+        for face_gender in [0, 1, 'all']:
+            if face_gender != 'all':
+                this_data = data.query("face_gender == @face_gender")
+            else:
+                this_data = data
+
+            # Initialize with NaNs in case of no trials for a
+            # given emotion category
+            scores = np.zeros(len(EMOTIONS))
             scores[:] = np.nan
-            #preds = []
-
-            for i, sub in enumerate(subs):
-                
-                data = df.query("sub_nr == @sub & trial_split == @trial_split")
-                X, y = data.iloc[:, :33], data.loc[:, 'emotion']
-
-                # Predict data + compute performance (AUROC)
-                y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
-                y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
-                idx = y_ohe.sum(axis=0) != 0
-                scores[i, idx] = roc_auc_score(y_ohe[:, idx], y_pred.to_numpy()[:, idx], average=None)
-                meta_data['sub_split'].append(data['sub_split'].unique()[0])
-                meta_data['trial_split'].append(trial_split)
-
-                # # Save results
-                # y_pred['sub_nr'] = sub
-                # y_pred['sub_split'] = data['sub_split'].unique()[0]
-                # y_pred['trial_split'] = trial_split
-                # y_pred['intensity'] = data['intensity']
-                # y_pred['y_true'] = data['emotion']
-                # preds.append(y_pred)
-
-            # Store scores and raw predictions
-            scores = pd.DataFrame(scores, columns=EMOTIONS, index=subs).reset_index()
-            scores['sub_split'] = meta_data['sub_split']
-            scores['trial_split'] = meta_data['trial_split']
-            
-            scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
-            scores = scores.rename({'index': 'sub_nr'}, axis=1)
-            scores['sub_ethnicity'] = ethn
-            scores['mapping'] = mapp_name
-            scores['kernel'] = kernel
-            scores['beta'] = beta
-            print(scores)
-            exit()
+        
+            X, y = this_data.iloc[:, :33], this_data.loc[:, 'emotion']
+            y_ohe = ohe.transform(y.to_numpy()[:, None])
+            y_pred = model.predict_proba(X)
+            idx = y_ohe.sum(axis=0) != 0
+            scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+            scores = pd.DataFrame(scores, columns=['score'])
+            scores['emotion'] = EMOTIONS
+            scores['sub'] = op.basename(f).split('_')[0].split('-')[1]
+            ethn = df['sub_ethnicity'].unique()[0]
+            scores['sub_ethnicity'] = {0: 'WC', 1: 'EA'}[ethn]
+            scores['sub_split'] = df['sub_split'].unique()[0]
+            scores['trial_split'] = 'train'#trial_split
+            scores['face_gender'] = {0: 'F', 1: 'M', 'all': 'all'}[face_gender]
+            scores['mapping'] =  mapp_name
             scores_all.append(scores)
-
-    # preds = pd.concat(preds, axis=0)
-    # preds['mapping'] = mapp_name    
-    # preds_all.append(preds)
 
 # Save scores and predictions
 scores = pd.concat(scores_all, axis=0)
 scores.to_csv('results/scores.tsv', sep='\t')
-print(scores.groupby(['emotion', 'mapping']).mean())
-
-# Save predictions (takes a while). Not really necessary, but maybe useful for 
-# follow-up analyses
-preds = pd.concat(preds_all)
-preds.to_csv('results/predictions.tsv', sep='\t')
+print(scores.query("face_gender == 'all'").groupby(['mapping', 'sub_ethnicity']).mean())

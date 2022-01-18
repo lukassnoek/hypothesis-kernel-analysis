@@ -89,7 +89,7 @@ for i, sub in tqdm(enumerate(subs)):
     these_id = stim_id[sub_idx == sub]
     df['face_id'] = these_id
     these_gend = stim_gender[sub_idx == sub]
-    df['face_gender'] = these_gend
+    df['face_gender'] = these_gend - 1
 
     these_resp = resp[sub_idx == sub]
     emo_resp = [resp_mapper[x]['emotion'] for x in these_resp]

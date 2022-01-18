@@ -50,7 +50,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         self.beta = beta
         self.param_names = param_names
         self.normalization = normalization
-        self.kernel_kwargs = kernel_kwargs 
+        self.kernel_kwargs = {} if kernel_kwargs is None else kernel_kwargs 
         self.Z_ = None
         self.labels_ = None
         self.cls_idx_ = None
@@ -77,6 +77,12 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
                 del params[p]
 
         return params
+
+    def add_Z(self, Z):
+        """ Adds a 2D embedding matrix directly."""
+        self.Z_ = Z
+        self.param_names = Z.columns.tolist()
+        self.cls_idx_ = LabelEncoder().fit_transform(Z.index.tolist())
 
     def _setup(self):
         """ Sets up kernels by creating a vector per class. Only done once (i.e., 
@@ -130,7 +136,7 @@ class KernelClassifier(BaseEstimator, ClassifierMixin):
         if self.Z_ is None:
             # Only set up the theory vector once
             self._setup()
-
+            
     def predict_proba(self, X):
         """ Predicts a probabilistic target label.
         

@@ -1,15 +1,14 @@
 import os
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['MKL_NUM_THREADS'] = '1'
+import os.path as op
 import sys
 import pandas as pd
 import numpy as np
+from glob import glob
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
 
 sys.path.append('src')
-from mappings import MAPPINGS
 from models import KernelClassifier
 
 # Define parameter names (AUs) and target label (EMOTIONS)
@@ -19,83 +18,94 @@ ohe = OneHotEncoder(sparse=False)
 ohe.fit(EMOTIONS[:, np.newaxis])
 
 df_abl = pd.read_csv('results/scores_ablation.tsv', sep='\t', index_col=0)
-df_abl = df_abl.drop(['sub', 'beta', 'kernel'], axis=1)
 
-subs = [str(s).zfill(2) for s in range(1, 61)]
+mappings = ['Cordaro2018IPC', 'Cordaro2018ref', 'Darwin', 'Ekman', 'Keltner2019', 'Matsumoto2008',
+            'JackSchyns_ethn-WC_sub-train_trial-train',
+            'JackSchyns_ethn-EA_sub-train_trial-train',
+            'JackSchyns_ethn-all_sub-train_trial-train',
+            ]
+
 scores_all = []    
+for mapp_name in tqdm(mappings):
 
-for emo in EMOTIONS:
+    model = KernelClassifier(au_cfg=None, param_names=None, kernel='cosine', ktype='similarity',
+                            binarize_X=False, normalization='softmax', beta=1)
 
-    df_abl_emo = df_abl.query("ablated_from == @emo & emotion == @emo & score != 0")
-    aus = df_abl_emo.groupby('ablated_au').mean().query("score < 0").index.tolist()
-    
-    for mapp_name, mapp in MAPPINGS.items():
-    
-        model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel='cosine',
-                                    ktype='similarity', binarize_X=False, normalization='softmax', beta=1)
-        if mapp_name == 'JS':
-            these_subs = subs[1::2]
-        else:
-            these_subs = subs
-    
-        model.fit(None, None)
-        Z_orig = model.Z_.copy()
+    # Save Z_orig for later!
+    Z_orig = pd.read_csv(f'data/{mapp_name}.tsv', sep='\t', index_col=0)
 
-        for au in aus:
+    for emo in EMOTIONS:
 
-            if np.any(Z_orig.loc[emo, au] == 1):
-                print(f"{au} already in {emo} config of {mapp_name}")
-                scores = np.zeros((len(these_subs), len(EMOTIONS)))
-                scores = pd.DataFrame(scores, columns=EMOTIONS, index=these_subs).reset_index()
-                scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
-                scores = scores.rename({'index': 'sub'}, axis=1)
-                scores['mapping'] = mapp_name
-                scores['appended_au'] = au
-                scores['appended_to'] = emo
-                scores['already_in_config'] = True
-                scores_all.append(scores)
-                continue
-        
-            # Initialize scores (one score per subject and per emotion)
-            scores = np.zeros((len(these_subs), len(EMOTIONS)))
-            scores[:] = np.nan
+        for sub_split in ['train', 'test', 'all']:
+            # We only report results on the test set (sub & trial)!
+            # See figures.ipynb
 
-            # Compute model performance per subject!
-            for i, sub in enumerate(these_subs):
-                data = pd.read_csv(f'data/ratings/sub-{sub}_ratings.tsv', sep='\t', index_col=0)
-                data = data.query("emotion != 'other'")
-                data = data.loc[data.index != 'empty', :]
+            if sub_split != 'all':
+                this_df = df_abl.query("sub_split == @sub_split")
+            else:
+                this_df = df_abl
             
-                if mapp_name == 'JS':
-                    data = data.query("data_split == 'test'")
+            for ethn in [0, 1, 'all']:
+                this_df = this_df.query("ablated_from == @emo & emotion == @emo & score != 0")
+                if ethn != 'all':
+                    this_df = this_df.query(f"sub_ethnicity == {ethn}")
                 
-                X, y = data.iloc[:, :33], data.loc[:, 'emotion']
+                Z_opt = Z_orig.copy()
 
-                # Predict data + compute performance (AUROC)
-                y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
-                y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
-                idx = y_ohe.sum(axis=0) != 0
-                scores[i, idx] = roc_auc_score(y_ohe[:, idx], y_pred.to_numpy()[:, idx], average=None)
+                # Which AUs improve prediction? 
+                aus = this_df.groupby('ablated_au').mean().query("score < 0").index.tolist()
+                for au in aus:
+                    Z_opt.loc[emo, au] = 1
 
-                # APPEND TO CONFIG
-                model.Z_.loc[emo, au] = 1
+                # Which AUs decrease prediction? 
+                aus = this_df.groupby('ablated_au').mean().query("score > 0").index.tolist()
+                for au in aus:
+                    Z_opt.loc[emo, au] = 0
 
-                y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
-                new = roc_auc_score(y_ohe[:, idx], y_pred.to_numpy()[:, idx], average=None)
-                scores[i, idx] = (new - scores[i, idx])# / scores[i, idx]) * 100
-                model.Z_ = Z_orig.copy()
+                sub_files = sorted(glob(f'data/ratings/*/*.tsv'))
 
-            # Store scores and raw predictions
-            scores = pd.DataFrame(scores, columns=EMOTIONS, index=these_subs).reset_index()
-            scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
-            scores = scores.rename({'index': 'sub'}, axis=1)
-            scores['mapping'] = mapp_name
-            scores['appended_au'] = au
-            scores['appended_to'] = emo
-            scores['already_in_config'] = False
-            scores_all.append(scores)
-    
+                for f in sub_files:
+                    df = pd.read_csv(f, sep='\t', index_col=0)
+                    df = df.query("emotion != 'other'")  # remove non-emo trials
+                    df = df.loc[df.index != 'empty', :]  # remove trials w/o AUs
+                
+                    for trial_split in ['train', 'test', 'all']:
+                        if trial_split != 'all':
+                            data = df.query("trial_split == @trial_split")
+                        else:
+                            data = df
+
+                        X, y = data.iloc[:, :33], data.loc[:, 'emotion']
+
+                        # Original prediction
+                        model.add_Z(Z_orig)
+
+                        # Predict data + compute performance (AUROC)
+                        y_pred = model.predict_proba(X)
+                        y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
+                        idx = y_ohe.sum(axis=0) != 0
+                        
+                        scores = np.zeros(len(EMOTIONS))
+                        scores[:] = np.nan
+                        scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+
+                        model.add_Z(Z_opt)
+                        y_pred = model.predict_proba(X)
+                        new = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+                        scores[idx] = new - scores[idx]
+
+                        # Store scores and raw predictions
+                        scores = pd.DataFrame(scores, columns=['score'])
+                        scores['emotion'] = EMOTIONS
+                        scores['sub'] = op.basename(f).split('_')[0].split('-')[1]
+                        scores['sub_ethnicity'] = df['sub_ethnicity'].unique()[0]
+                        scores['sub_split'] = sub_split
+                        scores['trial_split'] = trial_split
+                        scores['mapping'] =  mapp_name
+                        scores['model_ethnicity'] =  ethn
+                        
+                    scores_all.append(scores)
 
 scores = pd.concat(scores_all, axis=0)
-scores.to_csv('results/scores_append.tsv', sep='\t')
-
+print(scores.groupby(['sub_ethnicity', 'model_ethnicity']).mean())
+scores.to_csv('results/scores_optimal.tsv', sep='\t')
