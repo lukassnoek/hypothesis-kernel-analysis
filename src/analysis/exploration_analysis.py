@@ -18,12 +18,17 @@ ohe = OneHotEncoder(sparse=False)
 ohe.fit(EMOTIONS[:, np.newaxis])
 
 df_abl = pd.read_csv('results/scores_ablation.tsv', sep='\t', index_col=0)
+df_abl = df_abl.query("face_gender == 'all'")
 
 mappings = ['Cordaro2018IPC', 'Cordaro2018ref', 'Darwin', 'Ekman', 'Keltner2019', 'Matsumoto2008',
-            'JackSchyns_ethn-WC_sub-train_trial-train',
-            'JackSchyns_ethn-EA_sub-train_trial-train',
-            'JackSchyns_ethn-all_sub-train_trial-train',
+            'JackSchyns_ethn-all_CV',
             ]
+
+files = sorted(glob('data/ratings/*/*.tsv'))
+mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0) for f in files], axis=0)
+mega_df = mega_df.query("sub_split == 'test' & trial_split == 'test'")
+mega_df = mega_df.query("emotion != 'other'")  # remove non-emo trials
+mega_df = mega_df.loc[mega_df.index != 'empty', :]  # remove trials w/o AUs
 
 scores_all = []    
 for mapp_name in tqdm(mappings):
@@ -33,79 +38,60 @@ for mapp_name in tqdm(mappings):
 
     # Save Z_orig for later!
     Z_orig = pd.read_csv(f'data/{mapp_name}.tsv', sep='\t', index_col=0)
+                
+    for ethn in ['all', 'WC', 'EA']:
 
-    for emo in EMOTIONS:
-
-        for sub_split in ['train', 'test', 'all']:
-            # We only report results on the test set (sub & trial)!
-            # See figures.ipynb
-
-            if sub_split != 'all':
-                this_df = df_abl.query("sub_split == @sub_split")
-            else:
-                this_df = df_abl
+        if ethn != 'all':
+            df_abl_l1 = df_abl.query(f"sub_ethnicity == '{ethn}'")
+        else:
+            df_abl_l1 = df_abl
+        
+        #Z_opt = pd.read_csv('data/JackSchyns_ethn-all_CV.tsv', sep='\t', index_col=0)
+        Z_opt = Z_orig.copy()
+        for emo in EMOTIONS:    
+            df_abl_l2 = df_abl_l1.query("ablated_from == @emo & emotion == @emo & score != 0")
+            aus = df_abl_l2.groupby('ablated_au').mean().query("score < 0").index.tolist()
             
-            for ethn in [0, 1, 'all']:
-                this_df = this_df.query("ablated_from == @emo & emotion == @emo & score != 0")
-                if ethn != 'all':
-                    this_df = this_df.query(f"sub_ethnicity == {ethn}")
-                
-                Z_opt = Z_orig.copy()
+            for au in aus:
+                Z_opt.loc[emo, au] = 1
 
-                # Which AUs improve prediction? 
-                aus = this_df.groupby('ablated_au').mean().query("score < 0").index.tolist()
-                for au in aus:
-                    Z_opt.loc[emo, au] = 1
+            # Which AUs decrease prediction? 
+            aus = df_abl_l2.groupby('ablated_au').mean().query("score > 0").index.tolist()
+            for au in aus:
+                Z_opt.loc[emo, au] = 0
 
-                # Which AUs decrease prediction? 
-                aus = this_df.groupby('ablated_au').mean().query("score > 0").index.tolist()
-                for au in aus:
-                    Z_opt.loc[emo, au] = 0
+        sub_ids = mega_df['sub'].unique().tolist()
+        for sub_id in sub_ids:
+            df = mega_df.query("sub == @sub_id")
 
-                sub_files = sorted(glob(f'data/ratings/*/*.tsv'))
+            scores = np.zeros(len(EMOTIONS))
+            scores[:] = np.nan
+        
+            X, y = df.iloc[:, :33], df.loc[:, 'emotion']
+            y_ohe = ohe.transform(y.to_numpy()[:, None])
+            
+            # Original prediction
+            model.add_Z(Z_orig)
+            y_pred = model.predict_proba(X)
+            idx = y_ohe.sum(axis=0) != 0
+            scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+            
+            model.add_Z(Z_opt)
+            y_pred = model.predict_proba(X)
+            new = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+            scores[idx] = new - scores[idx]
 
-                for f in sub_files:
-                    df = pd.read_csv(f, sep='\t', index_col=0)
-                    df = df.query("emotion != 'other'")  # remove non-emo trials
-                    df = df.loc[df.index != 'empty', :]  # remove trials w/o AUs
-                
-                    for trial_split in ['train', 'test', 'all']:
-                        if trial_split != 'all':
-                            data = df.query("trial_split == @trial_split")
-                        else:
-                            data = df
-
-                        X, y = data.iloc[:, :33], data.loc[:, 'emotion']
-
-                        # Original prediction
-                        model.add_Z(Z_orig)
-
-                        # Predict data + compute performance (AUROC)
-                        y_pred = model.predict_proba(X)
-                        y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
-                        idx = y_ohe.sum(axis=0) != 0
-                        
-                        scores = np.zeros(len(EMOTIONS))
-                        scores[:] = np.nan
-                        scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
-
-                        model.add_Z(Z_opt)
-                        y_pred = model.predict_proba(X)
-                        new = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
-                        scores[idx] = new - scores[idx]
-
-                        # Store scores and raw predictions
-                        scores = pd.DataFrame(scores, columns=['score'])
-                        scores['emotion'] = EMOTIONS
-                        scores['sub'] = op.basename(f).split('_')[0].split('-')[1]
-                        scores['sub_ethnicity'] = df['sub_ethnicity'].unique()[0]
-                        scores['sub_split'] = sub_split
-                        scores['trial_split'] = trial_split
-                        scores['mapping'] =  mapp_name
-                        scores['model_ethnicity'] =  ethn
-                        
-                    scores_all.append(scores)
+            scores = pd.DataFrame(scores, columns=['score'])
+            scores['emotion'] = EMOTIONS
+            scores['sub'] = sub_id
+            sub_ethn = df['sub_ethnicity'].unique()[0]
+            scores['sub_ethnicity'] = sub_ethn
+            scores['sub_split'] = df['sub_split'].unique()[0]
+            scores['trial_split'] = 'train'
+            scores['mapping'] =  mapp_name
+            scores['model_ethnicity'] = ethn
+            scores_all.append(scores)
 
 scores = pd.concat(scores_all, axis=0)
-print(scores.groupby(['sub_ethnicity', 'model_ethnicity']).mean())
+print(scores.groupby(['model_ethnicity', 'sub_ethnicity', 'emotion']).mean())
 scores.to_csv('results/scores_optimal.tsv', sep='\t')
