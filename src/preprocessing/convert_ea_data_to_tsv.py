@@ -90,14 +90,15 @@ for i, sub in tqdm(enumerate(subs)):
     df['face_id'] = these_id
     these_gend = stim_gender[sub_idx == sub]
     df['face_gender'] = these_gend - 1
+    df['face_gender'] = [{0: 'F', 1: 'M'}[g] for g in df['face_gender']]
 
     these_resp = resp[sub_idx == sub]
     emo_resp = [resp_mapper[x]['emotion'] for x in these_resp]
     inten_resp = [resp_mapper[x]['intensity'] for x in these_resp]
     df['emotion'] = emo_resp
     df['intensity'] = inten_resp
-
-    df['sub_nr'] = i+1
-    df['sub_ethnicity'] = 1
-    f_out = f'data/ratings/EA/sub-{str(i+1).zfill(2)}_ratings.tsv'
+    sub_id = f'{str(i+1).zfill(2)}EA'
+    df['sub'] = sub_id
+    df['sub_ethnicity'] = 'EA'
+    f_out = f'data/ratings/EA/sub-{sub_id}_ratings.tsv'
     df.to_csv(f_out, sep='\t')

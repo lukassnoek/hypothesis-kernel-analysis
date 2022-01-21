@@ -127,7 +127,9 @@ for i in tqdm(range(au_data.shape[0])):
 
     df['emotion'] = [emo_names[idx] for idx in emo_rating[i, :, :].argmax(axis=1)]
     df['intensity'] = intensity[i, :]
-    df['sub_nr'] = i+1
-    df['sub_ethnicity'] = 0
-    f_out = f'data/ratings/WC/sub-{str(i+1).zfill(2)}_ratings.tsv'
+    sub_id = f'{str(i+1).zfill(2)}WC'
+    df['sub'] = sub_id
+    df['sub_ethnicity'] = 'WC'
+    df['face_gender'] = [{0: 'F', 1: 'M'}[g] for g in df['face_gender']]
+    f_out = f'data/ratings/WC/sub-{sub_id}_ratings.tsv'
     df.to_csv(f_out, sep='\t')

@@ -72,9 +72,10 @@ for ethn in ['WC', 'EA']:
     mega_df = pd.concat((train_df, test_df), axis=0)
 
     for sub in range(1, 61):  # split by sub
-        this_df = mega_df.query("sub_nr == @sub").copy()
+        sub_id = f'{str(sub).zfill(2)}{ethn}'
+        this_df = mega_df.query("sub == @sub_id").copy()
         # Because I'm paranoid, let's check again whether there are no duplicates across train and test
         train_df = this_df.query("trial_split == 'train'").iloc[:, :33].drop_duplicates()
         test_df = this_df.query("trial_split == 'test'").iloc[:, :33].drop_duplicates()
-        f_out = f'data/ratings/{ethn}/sub-{str(sub).zfill(2)}_ratings.tsv'
+        f_out = f'data/ratings/{ethn}/sub-{sub_id}_ratings.tsv'
         this_df.to_csv(f_out, sep='\t')

@@ -6,20 +6,29 @@ from scipy.stats import pearsonr
 from sklearn.preprocessing import OneHotEncoder
 
 
-def estimate_model(files, prop_threshold=None, trial_split='train'):
+# One-hot encode emotions
+ohe = OneHotEncoder(sparse=False)
+emotions = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise', 'other']
+ohe.fit(np.array(emotions)[:, None])
 
-    models = np.zeros((len(files), 7, 33))
-    emotions = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise', 'other']
-    ohe = OneHotEncoder(sparse=False)
-    ohe.fit(np.array(emotions)[:, None])
+# Remove "other" (but not from data)
+idx = np.ones(7, dtype=bool)
+cats = ohe.categories_[0]
+idx[cats == 'other'] = False
+cats = cats[idx]
 
-    N = np.zeros(len(files))
 
-    for i, f in enumerate(files):
-        df = pd.read_csv(f, sep='\t', index_col=0)
-        df = df.query("trial_split == @trial_split")
-        X = df.iloc[:, :33].to_numpy()
-        Y = ohe.transform(df['emotion'].to_numpy()[:, None])        
+def estimate_model(df):
+
+    sub_ids = df['sub'].unique()
+    models = np.zeros((len(sub_ids), 7, 33))
+    pvalss = np.zeros((len(sub_ids), 7, 33))
+
+    N = np.zeros(len(sub_ids))
+    for i, sub_id in enumerate(sub_ids):
+        df_l1 = df.query("sub == @sub_id")
+        X = df_l1.iloc[:, :33].to_numpy()
+        Y = ohe.transform(df_l1['emotion'].to_numpy()[:, None])        
         
         corrs = np.zeros((Y.shape[1], X.shape[1]))  # 6 x 33
         pvals = np.zeros_like(corrs)
@@ -33,21 +42,20 @@ def estimate_model(files, prop_threshold=None, trial_split='train'):
                 corrs[emo_i, au_i], pvals[emo_i, au_i] = c, p
 
         corrs[np.isnan(corrs)] = 0
-        #models[i, :, :] = (pvals < 0.05).astype(int)
         models[i, :, :] = corrs
+        pvalss[i, :, :] = pvals
         N[i] = X.shape[0]
 
     N = int(np.round(np.mean(N)))
+    models = models[:, idx, :]
     model = models.mean(axis=0)
     t_model = model * np.sqrt(N - 2) / np.sqrt(1 - model **2)
     t_model[t_model < 0] = 0
     p_corrs = stats.t.sf(np.abs(t_model), N - 1) * 2 
     model = (p_corrs < 0.05).astype(int)
 
-    #model = models.mean(axis=0)
-    model = pd.DataFrame(model, columns=df.columns[:33], index=emotions)
-    model = model.loc[emotions[:-1], :]
-    if prop_threshold is not None:
-        model = (model >= prop_threshold).astype(int)
+    # ALTERNATIVE
+    #model = (pvalss[:, idx, :].mean(axis=0) > 0.4).astype(int)
     
+    model = pd.DataFrame(model, columns=df.columns[:33], index=emotions[:-1])
     return model

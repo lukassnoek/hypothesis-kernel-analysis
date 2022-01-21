@@ -6,6 +6,9 @@ from sklearn.metrics import roc_auc_score
 from noiseceiling import compute_nc_classification
 from noiseceiling.bootstrap import run_bootstraps_nc
 
+
+# TODO: convert sub_ethnicity to integer for speed!
+
 emotions = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise'] 
 all_nc = []
 
