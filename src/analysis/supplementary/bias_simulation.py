@@ -2,8 +2,8 @@ import sys
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score, make_scorer
-from sklearn.model_selection import GridSearchCV
+from glob import glob
+from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
 
 sys.path.append('src')
@@ -18,60 +18,59 @@ to_iterate = dict(n_configs=MAPPINGS_c, n_aus=MAPPINGS_a)
 
 # Define parameter names (AUs) and target label (EMOTIONS)
 PARAM_NAMES = np.loadtxt('data/au_names_new.txt', dtype=str).tolist()
-EMOTIONS = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
+EMOTIONS = np.array(['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise'])
 
 # One-hot encode target label
 ohe = OneHotEncoder(categories='auto', sparse=False)
-ohe.fit(np.arange(6)[:, np.newaxis])
+ohe.fit(EMOTIONS[:, None])
 
-# Define analysis parameters
-beta = 1
-kernel = 'cosine'
-ktype = 'similarity'
-subs = [str(s).zfill(2) for s in range(1, 61)]
-scores_all = []
+files = sorted(glob('data/ratings/*/*.tsv'))
+mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0) for f in files], axis=0)
+mega_df = mega_df.query("sub_split == 'train' & trial_split == 'train'")
+mega_df = mega_df.query("emotion != 'other'")  # remove non-emo trials
+mega_df = mega_df.loc[mega_df.index != 'empty', :]  # remove trials w/o AUs
 
 # Loop across mappings (Darwin, Ekman, etc.)
 for sim_type, MAPPINGS in to_iterate.items():
+    # Define analysis parameters
+    scores_all = []
+
     print(f"Running simulation analysis for {sim_type} ...")
     
     for mapp_name, mapp in tqdm(MAPPINGS.items()):
 
         # Initialize model!
-        model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel=kernel, ktype=ktype,
-                                binarize_X=False, normalization='softmax', beta=beta)
+        model = KernelClassifier(au_cfg=mapp, param_names=PARAM_NAMES, kernel='cosine', ktype='similarity',
+                                binarize_X=False, normalization='softmax', beta=1)
         
-        # Initialize scores (one score per subject and per emotion)
-        scores = np.zeros((len(subs), len(EMOTIONS)))
+        model.fit(None, None)
 
         # Compute model performance per subject!
-        for i, sub in enumerate(subs):
-            data = pd.read_csv(f'data/ratings/sub-{sub}_ratings.tsv', sep='\t', index_col=0)
-            data = data.query("emotion != 'other'")
-            data = data.loc[data.index != 'empty']
-            X, y = data.iloc[:, :-2], data.iloc[:, -2]
+        for sub_id in tqdm(mega_df['sub'].unique(), desc=mapp_name):
+            df_l1 = mega_df.query("sub == @sub_id")
 
-            # Technically, we're not "fitting" anything, but this will set up the mapping matrix (self.Z_)
-            model.fit(X, y)
+            # Initialize with NaNs in case of no trials for a
+            # given emotion category
+            scores = np.zeros(len(EMOTIONS))
+            scores[:] = np.nan
+        
+            X, y = df_l1.iloc[:, :33], df_l1.loc[:, 'emotion']
+            y_ohe = ohe.transform(y.to_numpy()[:, None])
+            y_pred = model.predict_proba(X)
+            y_ohe = ohe.transform(y.to_numpy()[:, np.newaxis])
+            idx = y_ohe.sum(axis=0) != 0
+            scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
 
-            # Predict data + compute performance (AUROC)
-            y_pred = pd.DataFrame(model.predict_proba(X), index=X.index, columns=EMOTIONS)
-            scores[i, :] = roc_auc_score(pd.get_dummies(y), y_pred, average=None)
-
-        # Store scores and raw predictions
-        scores = pd.DataFrame(scores, columns=EMOTIONS, index=subs).reset_index()
-        scores = pd.melt(scores, id_vars='index', value_name='score', var_name='emotion')
-        scores = scores.rename({'index': 'sub'}, axis=1)
-        scores['mapping'] = mapp_name
-        scores['kernel'] = kernel
-        scores['beta'] = beta
-
-        if sim_type == 'n_configs':
-            scores['n_configs'] = np.repeat([len(v.keys()) for k, v in mapp.items()], 60)
-        else:
-            scores['n_aus'] = len(mapp['anger'])  # same for every emotion
-
-        scores_all.append(scores)
+            # Store scores and raw predictions
+            scores = pd.DataFrame(scores, columns=['score'])
+            scores['emotion'] = EMOTIONS
+            scores['sub'] = sub_id
+            scores['mapping'] = mapp_name
+            if sim_type == 'n_configs':
+                scores['n_configs'] = [len(v.keys()) for k, v in mapp.items()]
+            else:
+                scores['n_aus'] = len(mapp['anger'])  # same for every emotion
+            scores_all.append(scores)
 
     # Save scores and predictions
     scores = pd.concat(scores_all, axis=0)

@@ -32,40 +32,33 @@ def _parallel_analysis(df, au, mappings, EMOTIONS):
             for sub_id in sub_ids:
                 df_l1 = df.query("sub == @sub_id")
 
-                for face_gender in ['M', 'F', 'all']:
-                    if face_gender != 'all':
-                        df_l2 = df_l1.query("face_gender == @face_gender")
-                    else:
-                        df_l2 = df_l1
+                scores = np.zeros(len(EMOTIONS))
+                scores[:] = np.nan
+                X, y = df_l1.iloc[:, :33], df_l1.loc[:, 'emotion']
 
-                    scores = np.zeros(len(EMOTIONS))
-                    scores[:] = np.nan
-                    X, y = df_l2.iloc[:, :33], df_l2.loc[:, 'emotion']
+                # First compute original (unablated) model performance                    
+                y_ohe = ohe.transform(y.to_numpy()[:, None])
+                y_pred = model.predict_proba(X)
+                idx = y_ohe.sum(axis=0) != 0
+                scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
 
-                    # First compute original (unablated) model performance                    
-                    y_ohe = ohe.transform(y.to_numpy()[:, None])
-                    y_pred = model.predict_proba(X)
-                    idx = y_ohe.sum(axis=0) != 0
-                    scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+                # Ablate `au` from `emo`
+                model.Z_.loc[emo, au] = 0  # here is where the ablation happens!
+                y_pred = model.predict_proba(X)
+                new = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+                scores[idx] = (new - scores[idx])  # Store the absolute AUROC difference (orig - ablated)
+                model.Z_ = Z_orig.copy()  # restore original model (otherwise ablations 'add up')
 
-                    # Ablate `au` from `emo`
-                    model.Z_.loc[emo, au] = 0  # here is where the ablation happens!
-                    y_pred = model.predict_proba(X)
-                    new = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
-                    scores[idx] = (new - scores[idx])  # Store the absolute AUROC difference (orig - ablated)
-                    model.Z_ = Z_orig.copy()  # restore original model (otherwise ablations 'add up')
-
-                    scores = pd.DataFrame(scores, columns=['score'])
-                    scores['emotion'] = EMOTIONS
-                    scores['sub'] = sub_id
-                    scores['sub_ethnicity'] = df_l2['sub_ethnicity'].unique()[0]
-                    scores['face_gender'] = face_gender
-                    scores['sub_split'] = 'train'
-                    scores['trial_split'] = 'train'
-                    scores['mapping'] =  mapp_name
-                    scores['ablated_au'] = au
-                    scores['ablated_from'] = emo
-                    scores_all.append(scores)
+                scores = pd.DataFrame(scores, columns=['score'])
+                scores['emotion'] = EMOTIONS
+                scores['sub'] = sub_id
+                scores['sub_ethnicity'] = df_l1['sub_ethnicity'].unique()[0]
+                scores['sub_split'] = 'train'
+                scores['trial_split'] = 'train'
+                scores['mapping'] =  mapp_name
+                scores['ablated_au'] = au
+                scores['ablated_from'] = emo
+                scores_all.append(scores)
 
     scores = pd.concat(scores_all, axis=0)
     return scores

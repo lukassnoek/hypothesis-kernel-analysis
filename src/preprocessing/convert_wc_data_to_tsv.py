@@ -58,7 +58,7 @@ for i in tqdm(range(au_data.shape[0])):
 
     this_dat = np.c_[au_data[i, :, :].T, uniq_face_ids[i, :], gender[i, :]]
     df = pd.DataFrame(this_dat, columns=au_names + ['face_id', 'face_gender'], index=idx)
-
+    
     # Let's do some cleaning. First, remove the bilateral AUs that *also*
     # are activated unilaterally
     for au in ['2', '6', '7', '10', '12', '14', '20']:
@@ -124,7 +124,7 @@ for i in tqdm(range(au_data.shape[0])):
 
     df.loc[:, :] = np.round(vals, 2)
     df.index = new_idx
-
+    
     df['emotion'] = [emo_names[idx] for idx in emo_rating[i, :, :].argmax(axis=1)]
     df['intensity'] = intensity[i, :]
     sub_id = f'{str(i+1).zfill(2)}WC'

@@ -7,8 +7,9 @@ from tqdm import tqdm
 for ethn in ['WC', 'EA']:
     print(f"Processing ethnicity {ethn}")
     files = sorted(glob(f'data/ratings/{ethn}/sub-*.tsv'))
-    mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0).assign(sub_split='test' if i % 3 == 0 else 'train')
-                        for i, f in enumerate(files)], axis=0)
+    mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0).assign(
+                            sub_split='test' if i % 3 == 0 else 'train'
+                        ) for i, f in enumerate(files)], axis=0)
 
     if 'trial_split' in mega_df.columns:
         mega_df = mega_df.drop('trial_split', axis=1)
@@ -23,7 +24,7 @@ for ethn in ['WC', 'EA']:
     # Try to find a face ID split which contains the fewest AU duplicates
     # across train and test
     fewest_duplicates = np.inf
-    for i in tqdm(range(10)):
+    for i in tqdm(range(1000)):
         
         if ethn == 'WC':
             # Draw 4 train IDs for 0-7 (participant 45-60)
@@ -34,7 +35,7 @@ for ethn in ['WC', 'EA']:
             train_ids15 = np.random.choice(uniq_fids, size=n_train_id, replace=False)
             train_ids = np.concatenate((train_ids45, train_ids15))
         else:
-            train_ids = np.array([1, 2, 3])#np.random.choice(range(4), size=2, replace=False)
+            train_ids = np.random.choice(range(4), size=2, replace=False)
 
         # Split original DF in train and test and remove duplicates WITHIN train and test
         train_df = mega_df.loc[mega_df['face_id'].isin(train_ids), :].iloc[:, :33]
