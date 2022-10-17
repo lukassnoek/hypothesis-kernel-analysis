@@ -1,5 +1,5 @@
 # hypothesis-kernel-analysis
-Code for the "emotion hypothesis kernel analysis" project.
+Code for the "hypothesis kernel analysis" project.
 
 ## Order to run scripts
 Download the data from [Figshare](https://doi.org/10.21942/uva.21261885) and store in `data/`. These data represent the preprocessed data.
