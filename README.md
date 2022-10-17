@@ -1,4 +1,6 @@
 # hypothesis-kernel-analysis
+[![DOI](https://zenodo.org/badge/241642504.svg)](https://zenodo.org/badge/latestdoi/241642504)
+
 Code for the "hypothesis kernel analysis" project.
 
 ## Order to run scripts
