@@ -19,7 +19,7 @@ ohe.fit(EMOTIONS[:, np.newaxis])
 scores_all = []
 
 # Loop across mappings (Darwin, Ekman, etc.)
-mappings = ['Cordaro2018IPC', 'Cordaro2018ref', 'Darwin', 'Ekman', 'Keltner2019', 'Matsumoto2008']
+mappings = ['Cordaro2018IPC', 'Cordaro2018ref', 'Darwin', 'Ekman', 'Keltner2019', 'Matsumoto2008', 'JackSchyns_ethn-all_CV']
 
 files = sorted(glob('data/ratings/emotion/*/*.tsv'))
 mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0) for f in files], axis=0)
@@ -40,26 +40,30 @@ for mapp_name in mappings:
     for sub_id in tqdm(mega_df['sub'].unique(), desc=mapp_name):
         df_l1 = mega_df.query("sub == @sub_id")
 
-        # Initialize with NaNs in case of no trials for a
-        # given emotion category
-        scores = np.zeros(len(EMOTIONS))
-        scores[:] = np.nan
-    
-        X, y = df_l1.iloc[:, :33], df_l1.loc[:, 'emotion']
-        y_ohe = ohe.transform(y.to_numpy()[:, None])
-        y_pred = model.predict_proba(X)
-        idx = y_ohe.sum(axis=0) != 0
+        for gend in ['M', 'F']:
+            df_l2 = df_l1.query("face_gender == @gend")
+            
+            # Initialize with NaNs in case of no trials for a
+            # given emotion category
+            scores = np.zeros(len(EMOTIONS))
+            scores[:] = np.nan
         
-        scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
-        scores = pd.DataFrame(scores, columns=['score'])
-        scores['emotion'] = EMOTIONS
-        scores['sub'] = sub_id
-        ethn = df_l1['sub_ethnicity'].unique()[0]
-        scores['sub_ethnicity'] = ethn
-        scores['mapping'] =  mapp_name
-        scores_all.append(scores)
+            X, y = df_l2.iloc[:, :33], df_l2.loc[:, 'emotion']
+            y_ohe = ohe.transform(y.to_numpy()[:, None])
+            y_pred = model.predict_proba(X)
+            idx = y_ohe.sum(axis=0) != 0
+            
+            scores[idx] = roc_auc_score(y_ohe[:, idx], y_pred[:, idx], average=None)
+            scores = pd.DataFrame(scores, columns=['score'])
+            scores['emotion'] = EMOTIONS
+            scores['sub'] = sub_id
+            ethn = df_l2['sub_ethnicity'].unique()[0]
+            scores['sub_ethnicity'] = ethn
+            scores['mapping'] =  mapp_name
+            scores['face_gender'] = gend
+            scores_all.append(scores)
 
 # Save scores and predictions
 scores = pd.concat(scores_all, axis=0)
-scores.to_csv('results/scores.tsv', sep='\t')
-print(scores.groupby(['mapping', 'emotion', 'sub_ethnicity']).mean())
+scores.to_csv('results/scores_face_gender.tsv', sep='\t')
+print(scores.groupby(['mapping', 'emotion', 'face_gender']).mean())

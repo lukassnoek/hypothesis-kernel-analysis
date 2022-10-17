@@ -16,12 +16,12 @@ kwargs = dict(
     progress_bar=True
 )
 
-files = sorted(glob('data/ratings/emotions/*/*.tsv'))
+files = sorted(glob('data/ratings/conversational/*/*.tsv'))
 mega_df = pd.concat([pd.read_csv(f, sep='\t', index_col=0) for f in files], axis=0)
-mega_df = mega_df.query("emotion != 'other'")  # remove non-emo trials
+mega_df = mega_df.query("state != 'other'")  # remove non-emo trials
 mega_df = mega_df.loc[mega_df.index != 'empty', :]  # remove trials w/o AUs
 
-emotions = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise'] 
+emotions = ['bored', 'confused', 'interested', 'thinking'] 
 emo2int = {s: i for i, s in enumerate(emotions)}
 
 all_nc = []
@@ -41,18 +41,20 @@ for ethn in ['all', 'WC', 'EA']:
             df_l2 = df_l1
     
         idx = [col for col in df_l2.columns if 'AU' in col]
-        X, y = df_l2.loc[:, idx], df_l2['emotion']
+        X, y = df_l2.loc[:, idx], df_l2['state']
         X = X.astype(np.float16).round(1)
         nc = compute_nc_classification(X, y, **kwargs)
         
         nc_b = run_bootstraps_nc(X, y, kwargs=kwargs, n_bootstraps=100)
         nc = pd.DataFrame(np.c_[nc.to_numpy().squeeze(), nc_b.std(axis=0).to_numpy()],
                         columns=['noise_ceiling', 'sd'])
-        nc['emotion'] = emotions
+        #nc = pd.DataFrame(nc.to_numpy().squeeze(), columns=['noise_ceiling']).assign(state=nc.columns)
+        nc['state'] = emotions
         nc['sub_ethnicity'] = ethn
         nc['sub_split'] = sub_split
         nc['trial_split'] = trial_split
         all_nc.append(nc)
 
 nc = pd.concat(all_nc, axis=0)
-nc.to_csv('results/noise_ceiling.tsv', sep='\t', index=True)
+print(nc.query("sub_split == 'all' & trial_split == 'all'").groupby(['state', 'sub_ethnicity']).mean())
+nc.to_csv('results/noise_ceiling_conversational.tsv', sep='\t', index=True)

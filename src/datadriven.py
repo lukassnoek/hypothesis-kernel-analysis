@@ -6,29 +6,26 @@ from scipy.stats import pearsonr
 from sklearn.preprocessing import OneHotEncoder
 
 
-# One-hot encode emotions
-ohe = OneHotEncoder(sparse=False)
-emotions = ['anger', 'disgust', 'fear', 'happy', 'sadness', 'surprise', 'other']
-ohe.fit(np.array(emotions)[:, None])
+def estimate_model(df, ohe, type_='emotion'):
 
-# Remove "other" (but not from data)
-idx = np.ones(7, dtype=bool)
-cats = ohe.categories_[0]
-idx[cats == 'other'] = False
-cats = cats[idx]
+    # One-hot encode emotions
+    #ohe = OneHotEncoder(sparse=False)
+    if type_ == 'emotion':
+        target_col = 'emotion'
+    else:
+        target_col = 'state'
 
-
-def estimate_model(df):
+    labels = ohe.categories_[0]
 
     sub_ids = df['sub'].unique()
-    models = np.zeros((len(sub_ids), 7, 33))
-    pvalss = np.zeros((len(sub_ids), 7, 33))
+    models = np.zeros((len(sub_ids), len(labels), 33))
+    pvalss = np.zeros((len(sub_ids), len(labels), 33))
 
     N = np.zeros(len(sub_ids))
     for i, sub_id in enumerate(sub_ids):
         df_l1 = df.query("sub == @sub_id")
         X = df_l1.iloc[:, :33].to_numpy()
-        Y = ohe.transform(df_l1['emotion'].to_numpy()[:, None])        
+        Y = ohe.transform(df_l1[target_col].to_numpy()[:, None])        
         
         corrs = np.zeros((Y.shape[1], X.shape[1]))  # 6 x 33
         pvals = np.zeros_like(corrs)
@@ -47,7 +44,7 @@ def estimate_model(df):
         N[i] = X.shape[0]
 
     N = int(np.round(np.mean(N)))
-    models = models[:, idx, :]
+    #models = models[:, idx, :]
     model = models.mean(axis=0)
     t_model = model * np.sqrt(N - 2) / np.sqrt(1 - model **2)
     t_model[t_model < 0] = 0
@@ -55,7 +52,7 @@ def estimate_model(df):
     model = (p_corrs < 0.05).astype(int)
 
     # ALTERNATIVE
-    #model = (pvalss[:, idx, :].mean(axis=0) > 0.4).astype(int)
-    
-    model = pd.DataFrame(model, columns=df.columns[:33], index=emotions[:-1])
+    #model = (pvalss[:, :, :].mean(axis=0) > 0.4).astype(int)
+    #model = ((pvalss < 0.05).mean(axis=0) > 0.1).astype(int)
+    model = pd.DataFrame(model, columns=df.columns[:33], index=labels)
     return model

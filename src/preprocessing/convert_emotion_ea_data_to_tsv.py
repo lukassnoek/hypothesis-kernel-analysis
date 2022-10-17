@@ -19,7 +19,7 @@ for emo in emo_names:
         resp_mapper[i] = {'emotion': emo, 'intensity': inten}
         i += 1
 
-mat = loadmat('data/raw/EA_data_Lukas.mat')
+mat = loadmat('data/raw/emotion/EA_data_Lukas.mat')
 resp = mat['responses'].squeeze()
 stim_au = mat['stim_au_patterns']
 stim_gender = mat['stim_gend'].squeeze()
@@ -86,12 +86,13 @@ for i, sub in tqdm(enumerate(subs)):
     vals = np.round(vals, 1)
     df.loc[:] = vals
    
-    these_id = stim_id[sub_idx == sub]
-    df['face_id'] = these_id
     these_gend = stim_gender[sub_idx == sub]
     df['face_gender'] = these_gend - 1
     df['face_gender'] = [{0: 'F', 1: 'M'}[g] for g in df['face_gender']]
-
+    these_id = stim_id[sub_idx == sub]
+    these_id = [id_ + 4 if these_gend[i] == 2 else id_ for i, id_ in enumerate(these_id)]
+    df['face_id'] = these_id
+    
     these_resp = resp[sub_idx == sub]
     emo_resp = [resp_mapper[x]['emotion'] for x in these_resp]
     inten_resp = [resp_mapper[x]['intensity'] for x in these_resp]
